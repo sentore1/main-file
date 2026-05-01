@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasTable('pos')) {
+            // For MySQL, we need to alter the enum
+            DB::statement("ALTER TABLE pos MODIFY COLUMN status ENUM('completed', 'pending', 'cancelled', 'partial') DEFAULT 'completed'");
+        }
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasTable('pos')) {
+            DB::statement("ALTER TABLE pos MODIFY COLUMN status ENUM('completed', 'pending', 'cancelled') DEFAULT 'completed'");
+        }
+    }
+};

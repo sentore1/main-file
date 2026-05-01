@@ -1,0 +1,120 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║         🏢 WAREHOUSE-SPECIFIC HEADERS - GETTING STARTED          ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────┐
+│  📖 START HERE: WAREHOUSE_HEADERS_INDEX.md                       │
+│     → Complete documentation index with all guides               │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  ⚡ QUICK SETUP (3 Steps)                                        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1️⃣  FIND WAREHOUSE IDs                                          │
+│      • Check database: warehouses table → id column             │
+│      • Or check URL when editing a warehouse                    │
+│                                                                  │
+│  2️⃣  CONFIGURE HEADERS                                           │
+│      • Open: resources/js/utils/warehouseHeaders.ts             │
+│      • Add your warehouse info (see example below)              │
+│                                                                  │
+│  3️⃣  BUILD & TEST                                                │
+│      • Run: npm run build                                       │
+│      • Create invoice → Select warehouse → Download PDF         │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  📝 CONFIGURATION EXAMPLE                                        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  const warehouseHeaders = {                                     │
+│      1: {  // ← Your warehouse ID                               │
+│          company_name: 'Main Branch',                           │
+│          company_address: '123 Main St',                        │
+│          company_city: 'New York',                              │
+│          company_state: 'NY',                                   │
+│          company_zipcode: '10001',                              │
+│          company_telephone: '+1 555-0001',                      │
+│          company_email: 'main@company.com',                     │
+│      },                                                          │
+│      2: {  // ← Add more warehouses                             │
+│          company_name: 'West Branch',                           │
+│          // ... other fields                                    │
+│      }                                                           │
+│  };                                                              │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  ✅ WHAT IT DOES                                                 │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  • Shows different headers on invoices per warehouse            │
+│  • Works with: Sales, Purchase, Quotations                      │
+│  • Automatic fallback to default settings                       │
+│  • No database changes needed                                   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  📚 DOCUMENTATION                                                │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  📄 WAREHOUSE_HEADERS_INDEX.md ......... Documentation index    │
+│  🚀 WAREHOUSE_HEADERS_README.md ......... Quick start (3 steps) │
+│  📖 WAREHOUSE_HEADERS_GUIDE.md .......... Detailed guide        │
+│  🎨 WAREHOUSE_HEADERS_VISUAL_GUIDE.md ... Visual examples       │
+│  📋 WAREHOUSE_HEADERS_SUMMARY.md ........ Technical summary     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  🎯 TESTING                                                      │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Create new invoice/quotation                                │
+│  2. Select configured warehouse                                 │
+│  3. Click "Download PDF"                                        │
+│  4. Verify header shows warehouse info                          │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  🆘 TROUBLESHOOTING                                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ❌ Header not showing?                                          │
+│     → Check warehouse ID matches database                       │
+│     → Run: npm run build                                        │
+│     → Clear browser cache                                       │
+│                                                                  │
+│  ❌ Wrong information?                                           │
+│     → Verify warehouse ID is correct                            │
+│     → Check for typos in configuration                          │
+│                                                                  │
+│  ❌ Default header shows?                                        │
+│     → Normal if no warehouse selected                           │
+│     → Normal if warehouse not configured                        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  💡 PRO TIPS                                                     │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  • Start with one warehouse, test, then add more                │
+│  • All fields are optional - only add what you need             │
+│  • Keep a backup of your configuration                          │
+│  • Use the example file as a reference                          │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║  🎉 Ready to start? Open WAREHOUSE_HEADERS_INDEX.md             ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
