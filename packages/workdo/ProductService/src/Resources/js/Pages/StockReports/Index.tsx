@@ -23,8 +23,8 @@ export default function Index() {
 
     const [filters, setFilters] = useState({
         report_date: urlParams.get('report_date') || '',
-        report_type: urlParams.get('report_type') || '',
-        warehouse_id: urlParams.get('warehouse_id') || ''
+        report_type: urlParams.get('report_type') || undefined,
+        warehouse_id: urlParams.get('warehouse_id') || undefined
     });
 
     const [perPage] = useState(urlParams.get('per_page') || '10');
@@ -43,7 +43,7 @@ export default function Index() {
     };
 
     const clearFilters = () => {
-        setFilters({ report_date: '', report_type: '', warehouse_id: '' });
+        setFilters({ report_date: '', report_type: undefined, warehouse_id: undefined });
         router.get(route('product-service.stock-reports.index'), {per_page: perPage});
     };
 
@@ -189,7 +189,7 @@ export default function Index() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Report Type')}</label>
-                                    <Select value={filters.report_type} onValueChange={(value) => setFilters({...filters, report_type: value})}>
+                                    <Select value={filters.report_type || undefined} onValueChange={(value) => setFilters({...filters, report_type: value})}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('Select type')} />
                                         </SelectTrigger>
@@ -201,12 +201,11 @@ export default function Index() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('Warehouse')}</label>
-                                    <Select value={filters.warehouse_id} onValueChange={(value) => setFilters({...filters, warehouse_id: value})}>
+                                    <Select value={filters.warehouse_id || undefined} onValueChange={(value) => setFilters({...filters, warehouse_id: value})}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('All Warehouses')} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">{t('All Warehouses')}</SelectItem>
                                             {warehouses.map((warehouse: any) => (
                                                 <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
                                                     {warehouse.name}

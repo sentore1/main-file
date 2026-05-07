@@ -48,7 +48,8 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "Workdo\\LandingPage\\": "packages/workdo/LandingPage/src/"
+            "Workdo\\LandingPage\\": "packages/workdo/LandingPage/src/",
+            "Workdo\\StockRequisition\\": "packages/workdo/StockRequisition/src/"
         },
         "files": [
             "app/Helpers/Helper.php"

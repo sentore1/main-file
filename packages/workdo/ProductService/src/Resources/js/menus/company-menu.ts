@@ -28,6 +28,12 @@ export const productServiceCompanyMenu = (t: (key: string) => string) => [
                 href: route('product-service.stock-reports.index'),
                 permission: 'manage-stock-report',
                 order: 3
+            },
+            {
+                title: t('Stock Requisitions'),
+                href: route('stock-requisitions.index'),
+                permission: 'manage-stock-requisitions',
+                order: 4
             }
         ]
     }

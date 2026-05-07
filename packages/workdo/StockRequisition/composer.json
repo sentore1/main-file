@@ -1,0 +1,25 @@
+{
+    "name": "workdo/stock-requisition",
+    "description": "Stock Requisition Management Module",
+    "type": "library",
+    "license": "MIT",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Workdo\\StockRequisition\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "WorkDo",
+            "email": "support@workdo.io"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Workdo\\StockRequisition\\Providers\\StockRequisitionServiceProvider"
+            ]
+        }
+    }
+}

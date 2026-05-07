@@ -22,12 +22,12 @@ export default function Create() {
     const [formData, setFormData] = useState({
         report_date: new Date().toISOString().split('T')[0],
         report_type: 'opening',
-        warehouse_id: '',
+        warehouse_id: undefined as string | undefined,
         notes: '',
         items: [] as Array<{ product_id: number; product_name: string; quantity: number; category: string }>
     });
 
-    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
     const [searchQuery, setSearchQuery] = useState('');
     const [errors, setErrors] = useState<any>({});
 
@@ -140,7 +140,7 @@ export default function Create() {
                             </div>
                             <div>
                                 <Label htmlFor="warehouse_id">{t('Warehouse (Optional)')}</Label>
-                                <Select value={formData.warehouse_id} onValueChange={(value) => setFormData({ ...formData, warehouse_id: value })}>
+                                <Select value={formData.warehouse_id || undefined} onValueChange={(value) => setFormData({ ...formData, warehouse_id: value })}>
                                     <SelectTrigger>
                                         <SelectValue placeholder={t('All Warehouses')} />
                                     </SelectTrigger>
@@ -173,7 +173,7 @@ export default function Create() {
                     <CardContent className="space-y-4">
                         <div>
                             <Label>{t('Select Category')}</Label>
-                            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <Select value={selectedCategory || undefined} onValueChange={setSelectedCategory}>
                                 <SelectTrigger>
                                     <SelectValue placeholder={t('Choose a category')} />
                                 </SelectTrigger>

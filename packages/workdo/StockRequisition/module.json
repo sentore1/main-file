@@ -1,0 +1,10 @@
+{
+    "name": "StockRequisition",
+    "alias": "Stock Requisition",
+    "description": "Manage stock requisitions with approval workflow",
+    "priority": 6,
+    "version": 1.0,
+    "monthly_price": 0,
+    "yearly_price": 0,
+    "package_name": "stock-requisition"
+}
