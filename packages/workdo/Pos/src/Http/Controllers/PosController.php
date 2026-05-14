@@ -375,7 +375,12 @@ class PosController extends Controller
                             $nights = max(1, $item['quantity']);
                             $numberOfGuests = $item['number_of_guests'] ?? $room->max_occupancy;
                             
-                            $subtotal = $nights * $room->price_per_night;
+                            // Use custom price from frontend if provided, otherwise use database price
+                            $actualPrice = isset($item['price']) && $item['price'] > 0 
+                                ? (float) $item['price'] 
+                                : (float) $room->price_per_night;
+                            
+                            $subtotal = $nights * $actualPrice;
                             $taxAmount = 0; // No automatic tax
                             
                             // Breakfast is complimentary - no charge
@@ -461,7 +466,7 @@ class PosController extends Controller
                             $saleItem->pos_id = $sale->id;
                             $saleItem->product_id = $room->id;
                             $saleItem->quantity = $nights;
-                            $saleItem->price = $room->price_per_night;
+                            $saleItem->price = $actualPrice; // Use custom price if edited, otherwise database price
                             $saleItem->tax_ids = null;
                             $saleItem->subtotal = $subtotal;
                             $saleItem->tax_amount = $taxAmount;
@@ -471,7 +476,12 @@ class PosController extends Controller
                             $saleItem->created_by = creatorId();
                             $saleItem->save();
                             
-                            \Log::info('Room POS Item Saved', ['item_id' => $saleItem->id, 'price' => $saleItem->price]);
+                            \Log::info('Room POS Item Saved', [
+                                'item_id' => $saleItem->id, 
+                                'db_price' => $room->price_per_night,
+                                'custom_price' => $item['price'] ?? null,
+                                'actual_price_used' => $actualPrice
+                            ]);
                         }
                     } else {
                         // This is a regular product
