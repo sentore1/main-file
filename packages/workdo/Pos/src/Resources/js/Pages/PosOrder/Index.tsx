@@ -83,7 +83,10 @@ export default function Index() {
         customer: urlParams.get('customer') || '',
         warehouse: urlParams.get('warehouse') || '',
         status: urlParams.get('status') || 'all',
-        date_range: urlParams.get('date_range') || ''
+        date_range: urlParams.get('date_range') || '',
+        date_preset: urlParams.get('date_preset') || 'custom',
+        start_date: urlParams.get('start_date') || '',
+        end_date: urlParams.get('end_date') || ''
     });
     const [perPage] = useState(urlParams.get('per_page') || '10');
     const [sortField, setSortField] = useState(urlParams.get('sort') || '');
@@ -102,8 +105,47 @@ export default function Index() {
     };
 
     const clearFilters = () => {
-        setFilters({ search: '', customer: '', warehouse: '', status: 'all' });
+        setFilters({ search: '', customer: '', warehouse: '', status: 'all', date_range: '', date_preset: 'custom', start_date: '', end_date: '' });
         router.get(route('pos.orders'), {per_page: perPage, view: viewMode});
+    };
+
+    const handleDatePresetChange = (preset: string) => {
+        const today = new Date();
+        let startDate = '';
+        let endDate = '';
+
+        if (preset === 'today') {
+            startDate = today.toISOString().split('T')[0];
+            endDate = startDate;
+        } else if (preset === 'this_week') {
+            const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
+            const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 6));
+            startDate = firstDay.toISOString().split('T')[0];
+            endDate = lastDay.toISOString().split('T')[0];
+        } else if (preset === 'this_month') {
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            startDate = firstDay.toISOString().split('T')[0];
+            endDate = lastDay.toISOString().split('T')[0];
+        } else if (preset === 'custom') {
+            // Clear dates for custom range
+            setFilters({
+                ...filters,
+                date_preset: 'custom',
+                start_date: '',
+                end_date: '',
+                date_range: ''
+            });
+            return;
+        }
+
+        setFilters({
+            ...filters,
+            date_preset: preset,
+            start_date: startDate,
+            end_date: endDate,
+            date_range: preset !== 'custom' ? `${startDate} to ${endDate}` : ''
+        });
     };
 
     const handleSort = (field: string) => {
@@ -263,6 +305,8 @@ export default function Index() {
                                             if (filters.customer) params.append('customer', filters.customer);
                                             if (filters.warehouse) params.append('warehouse', filters.warehouse);
                                             if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+                                            if (filters.start_date) params.append('start_date', filters.start_date);
+                                            if (filters.end_date) params.append('end_date', filters.end_date);
                                             if (filters.date_range) params.append('date_range', filters.date_range);
                                             if (filters.search) params.append('search', filters.search);
                                             params.append('download', 'pdf');
@@ -320,7 +364,12 @@ export default function Index() {
                                     onToggle={() => setShowFilters(!showFilters)}
                                 />
                                 {(() => {
-                                    const activeFilters = [filters.customer, filters.warehouse, filters.status !== 'all' ? filters.status : ''].filter(Boolean).length;
+                                    const activeFilters = [
+                                        filters.customer, 
+                                        filters.warehouse, 
+                                        filters.status !== 'all' ? filters.status : '',
+                                        filters.start_date || filters.end_date || (filters.date_preset && filters.date_preset !== 'custom')
+                                    ].filter(Boolean).length;
                                     return activeFilters > 0 && (
                                         <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
                                             {activeFilters}
@@ -335,7 +384,7 @@ export default function Index() {
                 {/* Advanced Filters */}
                 {showFilters && (
                     <CardContent className="p-6 bg-blue-50/30 border-b">
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">{t('Customer')}</label>
                                 <Input
@@ -365,6 +414,55 @@ export default function Index() {
                                         <SelectItem value="pending">{t('Pending')}</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Date Preset')}</label>
+                                <Select value={filters.date_preset || 'custom'} onValueChange={handleDatePresetChange}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('Select date range')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="custom">{t('Custom Range')}</SelectItem>
+                                        <SelectItem value="today">{t('Today')}</SelectItem>
+                                        <SelectItem value="this_week">{t('This Week')}</SelectItem>
+                                        <SelectItem value="this_month">{t('This Month')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('Start Date')}</label>
+                                <Input
+                                    type="date"
+                                    value={filters.start_date}
+                                    onChange={(e) => {
+                                        const newStartDate = e.target.value;
+                                        setFilters({
+                                            ...filters,
+                                            start_date: newStartDate,
+                                            date_preset: 'custom',
+                                            date_range: newStartDate && filters.end_date ? `${newStartDate} to ${filters.end_date}` : ''
+                                        });
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('End Date')}</label>
+                                <Input
+                                    type="date"
+                                    value={filters.end_date}
+                                    onChange={(e) => {
+                                        const newEndDate = e.target.value;
+                                        setFilters({
+                                            ...filters,
+                                            end_date: newEndDate,
+                                            date_preset: 'custom',
+                                            date_range: filters.start_date && newEndDate ? `${filters.start_date} to ${newEndDate}` : ''
+                                        });
+                                    }}
+                                />
                             </div>
                             <div className="flex items-end gap-2">
                                 <Button onClick={handleFilter} size="sm">{t('Apply')}</Button>

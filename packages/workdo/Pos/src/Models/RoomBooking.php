@@ -5,6 +5,7 @@ namespace Workdo\Pos\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\User;
 use App\Models\Warehouse;
 
@@ -75,6 +76,11 @@ class RoomBooking extends Model
     public function revenue(): BelongsTo
     {
         return $this->belongsTo(\Workdo\Account\Models\Revenue::class);
+    }
+
+    public function charges(): HasMany
+    {
+        return $this->hasMany(RoomBookingCharge::class, 'booking_id');
     }
 
     public function bookingGroup()

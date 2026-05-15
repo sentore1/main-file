@@ -90,8 +90,18 @@ export default function Report() {
                     )}
                     <h1 className="text-3xl font-bold mb-2">{t('POS Orders Report')}</h1>
                     <p className="text-gray-600">{t('Generated on')}: {formatDate(new Date().toISOString())}</p>
-                    {filters.date_range && (
-                        <p className="text-gray-600 mt-1">{t('Period')}: {filters.date_range}</p>
+                    {(filters.start_date || filters.end_date || filters.date_range) && (
+                        <p className="text-gray-600 mt-1">
+                            {t('Period')}: {
+                                filters.start_date && filters.end_date 
+                                    ? `${formatDate(filters.start_date)} - ${formatDate(filters.end_date)}`
+                                    : filters.start_date 
+                                        ? `${t('From')} ${formatDate(filters.start_date)}`
+                                        : filters.end_date
+                                            ? `${t('Until')} ${formatDate(filters.end_date)}`
+                                            : filters.date_range
+                            }
+                        </p>
                     )}
                 </div>
 

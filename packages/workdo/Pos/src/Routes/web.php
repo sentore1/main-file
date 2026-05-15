@@ -76,6 +76,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Pos'])->group(fun
         Route::get('/sales', [PosReportController::class, 'sales'])->name('sales');
         Route::get('/products', [PosReportController::class, 'products'])->name('products');
         Route::get('/customers', [PosReportController::class, 'customers'])->name('customers');
+        Route::get('/daily-financial', [PosReportController::class, 'dailyFinancial'])->name('daily-financial');
     });
 
     // Breakfast Alert

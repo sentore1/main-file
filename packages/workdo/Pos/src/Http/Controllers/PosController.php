@@ -98,6 +98,15 @@ class PosController extends Controller
                 }
             }
 
+            // Date filtering
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $query->whereBetween('pos_date', [$request->start_date, $request->end_date]);
+            } elseif ($request->filled('start_date')) {
+                $query->where('pos_date', '>=', $request->start_date);
+            } elseif ($request->filled('end_date')) {
+                $query->where('pos_date', '<=', $request->end_date);
+            }
+
             $sortField = $request->get('sort', 'created_at');
             $sortDirection = $request->get('direction', 'desc');
 
@@ -122,7 +131,7 @@ class PosController extends Controller
                 'total_count' => $sales->total(),
                 'current_page_count' => $sales->count(),
                 'warehouse_ids' => $warehouseIds,
-                'filters' => $request->only(['search', 'customer', 'warehouse', 'status']),
+                'filters' => $request->only(['search', 'customer', 'warehouse', 'status', 'start_date', 'end_date']),
                 'first_sale' => $sales->items()[0] ?? null,
             ]);
 
@@ -465,6 +474,7 @@ class PosController extends Controller
                             $saleItem = new PosItem();
                             $saleItem->pos_id = $sale->id;
                             $saleItem->product_id = $room->id;
+                            $saleItem->item_type = 'room';
                             $saleItem->quantity = $nights;
                             $saleItem->price = $actualPrice; // Use custom price if edited, otherwise database price
                             $saleItem->tax_ids = null;
@@ -524,6 +534,7 @@ class PosController extends Controller
                             $saleItem = new PosItem();
                             $saleItem->pos_id = $sale->id;
                             $saleItem->product_id = $item['id'];
+                            $saleItem->item_type = 'product';
                             $saleItem->quantity = $item['quantity'];
                             $saleItem->price = $actualPrice; // Use custom price if provided, otherwise database price
                             $saleItem->tax_ids = $taxIds;
@@ -638,8 +649,10 @@ class PosController extends Controller
             $sale->load([
                 'customer:id,name,email',
                 'warehouse:id,name',
-                'items:id,pos_id,product_id,quantity,price,subtotal,tax_ids,tax_amount,total_amount,notes',
+                'items:id,pos_id,product_id,item_type,quantity,price,subtotal,tax_ids,tax_amount,total_amount,notes',
                 'items.product:id,name,sku',
+                'items.room:id,room_number,room_type_id',
+                'items.room.roomType:id,name',
                 'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'
             ]);
             $totals = PosItem::where('pos_id', $sale->id)
@@ -654,6 +667,18 @@ class PosController extends Controller
             $sale->balance_due = $sale->payment ? $sale->payment->balance_due : 0;
 
             $sale->items->each(function($item) {
+                // Add item name and SKU based on type
+                if ($item->item_type === 'room' && $item->room) {
+                    $item->display_name = 'Room ' . $item->room->room_number;
+                    $item->display_sku = 'ROOM-' . $item->room->room_number;
+                    $item->display_category = $item->room->roomType ? $item->room->roomType->name : 'Room';
+                } else if ($item->product) {
+                    $item->display_name = $item->product->name;
+                    $item->display_sku = $item->product->sku;
+                    $item->display_category = null;
+                }
+                
+                // Add taxes for products
                 $taxes = [];
                 if ($item->tax_ids && is_array($item->tax_ids)) {
                     $taxes = ProductServiceTax::whereIn('id', $item->tax_ids)
@@ -706,8 +731,10 @@ class PosController extends Controller
             $sale->load([
                 'customer:id,name,email',
                 'warehouse:id,name',
-                'items:id,pos_id,product_id,quantity,price,subtotal,tax_ids,tax_amount,total_amount,notes',
+                'items:id,pos_id,product_id,item_type,quantity,price,subtotal,tax_ids,tax_amount,total_amount,notes',
                 'items.product:id,name,sku',
+                'items.room:id,room_number,room_type_id',
+                'items.room.roomType:id,name',
                 'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'
             ]);
 
@@ -723,6 +750,18 @@ class PosController extends Controller
             $sale->balance_due = $sale->payment ? $sale->payment->balance_due : 0;
 
             $sale->items->each(function($item) {
+                // Add item name and SKU based on type
+                if ($item->item_type === 'room' && $item->room) {
+                    $item->display_name = 'Room ' . $item->room->room_number;
+                    $item->display_sku = 'ROOM-' . $item->room->room_number;
+                    $item->display_category = $item->room->roomType ? $item->room->roomType->name : 'Room';
+                } else if ($item->product) {
+                    $item->display_name = $item->product->name;
+                    $item->display_sku = $item->product->sku;
+                    $item->display_category = null;
+                }
+                
+                // Add taxes for products
                 $taxes = [];
                 if ($item->tax_ids && is_array($item->tax_ids)) {
                     $taxes = ProductServiceTax::whereIn('id', $item->tax_ids)
@@ -893,7 +932,14 @@ class PosController extends Controller
                 }
             }
 
-            if ($request->filled('date_range')) {
+            // Date filtering - support both date_range and start_date/end_date
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $query->whereBetween('pos_date', [$request->start_date, $request->end_date]);
+            } elseif ($request->filled('start_date')) {
+                $query->where('pos_date', '>=', $request->start_date);
+            } elseif ($request->filled('end_date')) {
+                $query->where('pos_date', '<=', $request->end_date);
+            } elseif ($request->filled('date_range')) {
                 $dateRange = explode(' to ', $request->date_range);
                 if (count($dateRange) == 2) {
                     $query->whereBetween('pos_date', [$dateRange[0], $dateRange[1]]);
@@ -935,7 +981,7 @@ class PosController extends Controller
 
             return Inertia::render('Pos/PosOrder/Report', [
                 'sales' => $sales,
-                'filters' => $request->only(['customer', 'warehouse', 'status', 'date_range', 'search'])
+                'filters' => $request->only(['customer', 'warehouse', 'status', 'date_range', 'search', 'start_date', 'end_date'])
             ]);
         }else{
             return redirect()->route('pos.orders')->with('error', __('Permission denied'));

@@ -38,6 +38,11 @@ export const posCompanyMenu = (t: (key: string) => string) => [
                 permission: 'manage-pos-reports',
                 children: [
                     {
+                        title: t('Daily Financial Report'),
+                        href: route('pos.reports.daily-financial'),
+                        permission: 'manage-pos-reports',
+                    },
+                    {
                         title: t('Sales Report'),
                         href: route('pos.reports.sales'),
                         permission: 'view-pos-reports',
