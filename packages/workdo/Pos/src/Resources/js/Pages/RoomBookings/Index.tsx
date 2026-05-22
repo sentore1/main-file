@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Home, Eye, Calendar, LogIn, LogOut, XCircle } from 'lucide-react';
+import { Plus, Search, Home, Eye, Calendar, LogIn, LogOut, XCircle, Download } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { useFavicon } from '@/hooks/use-favicon';
 import { BrandProvider } from '@/contexts/brand-context';
@@ -36,6 +36,10 @@ interface Booking {
     warehouse: {
         name: string;
     };
+    payment?: {
+        amount_paid: number;
+        payment_method: string;
+    };
 }
 
 interface Warehouse {
@@ -61,9 +65,15 @@ interface IndexProps {
         warehouse?: { id: number; name: string };
         status: string;
     }>;
+    summary?: {
+        total_bookings: number;
+        total_revenue: number;
+        total_paid: number;
+        total_balance: number;
+    };
 }
 
-function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
+function IndexContent({ bookings, warehouses, lateCheckouts, summary }: IndexProps) {
     const { t } = useTranslation();
     useFavicon();
     
@@ -71,6 +81,7 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
         search: '',
         warehouse: '',
         status: '',
+        date_range: 'all', // New: all, today, week, month, year
     });
 
     const handleFilter = () => {
@@ -135,6 +146,22 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const params = new URLSearchParams();
+                                if (filters.search) params.append('search', filters.search);
+                                if (filters.warehouse) params.append('warehouse', filters.warehouse);
+                                if (filters.status) params.append('status', filters.status);
+                                if (filters.date_range && filters.date_range !== 'all') params.append('date_range', filters.date_range);
+                                params.append('download', 'pdf');
+                                window.open(route('room-bookings.download-report') + '?' + params.toString(), '_blank');
+                            }}
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            {t('Download Report')}
+                        </Button>
                         <Link href={route('room-bookings.calendar')}>
                             <Button variant="outline">
                                 <Calendar className="h-4 w-4 mr-2" />
@@ -158,7 +185,7 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
 
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div className="relative md:col-span-2">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                                 <Input
@@ -181,10 +208,52 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <Select value={filters.date_range} onValueChange={(value) => setFilters({ ...filters, date_range: value })}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={t('Date Range')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t('All Time')}</SelectItem>
+                                    <SelectItem value="today">{t('Today')}</SelectItem>
+                                    <SelectItem value="week">{t('This Week')}</SelectItem>
+                                    <SelectItem value="month">{t('This Month')}</SelectItem>
+                                    <SelectItem value="year">{t('This Year')}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Button onClick={handleFilter}>{t('Filter')}</Button>
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Summary Statistics */}
+                {summary && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-sm text-gray-500 mb-1">{t('Total Bookings')}</div>
+                                <div className="text-2xl font-bold text-blue-600">{summary.total_bookings}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-sm text-gray-500 mb-1">{t('Total Revenue')}</div>
+                                <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.total_revenue)}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-sm text-gray-500 mb-1">{t('Total Collected')}</div>
+                                <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.total_paid)}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-sm text-gray-500 mb-1">{t('Outstanding Balance')}</div>
+                                <div className="text-2xl font-bold text-orange-600">{formatCurrency(summary.total_balance)}</div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
                 <Card>
                     <CardHeader>
@@ -203,6 +272,8 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('Check-out')}</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('Nights')}</th>
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Total')}</th>
+                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Paid')}</th>
+                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Balance')}</th>
                                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('Status')}</th>
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Actions')}</th>
                                         </tr>
@@ -235,8 +306,25 @@ function IndexContent({ bookings, warehouses, lateCheckouts }: IndexProps) {
                                                 <td className="px-4 py-3 text-sm">{formatDate(booking.check_in_date)}</td>
                                                 <td className="px-4 py-3 text-sm">{formatDate(booking.check_out_date)}</td>
                                                 <td className="px-4 py-3 text-sm">{booking.total_nights}</td>
-                                                <td className="px-4 py-3 text-right font-semibold text-green-600">
+                                                <td className="px-4 py-3 text-right font-semibold">
                                                     {formatCurrency(booking.total_amount)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className="font-medium text-green-600">
+                                                        {formatCurrency(booking.payment?.amount_paid || 0)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    {(() => {
+                                                        const balance = booking.total_amount - (booking.payment?.amount_paid || 0);
+                                                        return balance > 0 ? (
+                                                            <span className="font-medium text-orange-600">
+                                                                {formatCurrency(balance)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <Badge variant={getStatusBadge(booking.status)}>

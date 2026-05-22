@@ -11,6 +11,7 @@ import { Download, ArrowLeft, User, Building2, Calendar, Package } from 'lucide-
 interface PosItem {
     id: number;
     product_id: number;
+    item_type?: string;
     quantity: number;
     price: number;
     subtotal: number;
@@ -18,11 +19,22 @@ interface PosItem {
     tax_amount: number;
     total_amount: number;
     notes?: string;
-    product: {
+    display_name?: string;
+    display_sku?: string;
+    display_category?: string;
+    product?: {
         id: number;
         name: string;
         sku?: string;
         description?: string;
+    };
+    room?: {
+        id: number;
+        room_number: string;
+        room_type?: {
+            id: number;
+            name: string;
+        };
     };
     taxes?: Array<{
         id: number;
@@ -207,9 +219,20 @@ export default function Show() {
                                     {sale.items?.map((item, index) => (
                                         <tr key={index}>
                                             <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">{t('SKU:')} {item.product.sku}</div>
+                                                <div className="font-medium">
+                                                    {item.display_name || item.product?.name || 'Unknown Item'}
+                                                </div>
+                                                {(item.display_sku || item.product?.sku) && (
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {t('SKU:')} {item.display_sku || item.product?.sku}
+                                                    </div>
+                                                )}
+                                                {item.display_category && (
+                                                    <div className="text-sm text-muted-foreground">
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {item.display_category}
+                                                        </Badge>
+                                                    </div>
                                                 )}
                                                 {item.product?.description && (
                                                     <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>

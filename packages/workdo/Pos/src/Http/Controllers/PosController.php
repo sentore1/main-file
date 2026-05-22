@@ -422,11 +422,12 @@ class PosController extends Controller
                             $booking->save();
                             
                             // Create booking payment
+                            // Note: We'll update this with actual paid amount after calculating POS payment
                             $bookingPayment = new RoomBookingPayment();
                             $bookingPayment->booking_id = $booking->id;
                             $bookingPayment->bank_account_id = $validated['bank_account_id'] ?? null;
                             $bookingPayment->payment_method = $validated['payment_method'] ?? 'cash';
-                            $bookingPayment->amount_paid = $totalAmount;
+                            $bookingPayment->amount_paid = 0; // Temporary - will be updated after POS payment calculation
                             $bookingPayment->payment_date = now();
                             $bookingPayment->creator_id = Auth::id();
                             $bookingPayment->created_by = creatorId();
@@ -585,6 +586,67 @@ class PosController extends Controller
                     'paid_amount' => $paidAmount, 
                     'balance_due' => $balanceDue
                 ]);
+
+                // Update room booking payments with actual paid amounts (for partial payments)
+                // This ensures room booking payment records reflect what was actually paid
+                if (!$sale->charged_to_room && $paidAmount > 0 && $paidAmount < $totalAfterDiscount) {
+                    // Partial payment - distribute proportionally to room bookings
+                    $roomBookingIds = [];
+                    foreach ($validated['items'] as $item) {
+                        $isRoom = isset($item['is_room']) && $item['is_room'] === true;
+                        if ($isRoom) {
+                            $room = Room::find($item['id']);
+                            if ($room) {
+                                // Find the booking we just created for this room
+                                $booking = RoomBooking::where('room_id', $room->id)
+                                    ->where('created_by', creatorId())
+                                    ->latest()
+                                    ->first();
+                                if ($booking) {
+                                    $roomBookingIds[] = $booking->id;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Update each room booking payment proportionally
+                    foreach ($roomBookingIds as $bookingId) {
+                        $booking = RoomBooking::find($bookingId);
+                        if ($booking && $booking->payment) {
+                            // Calculate proportional payment for this booking
+                            $bookingProportion = $booking->total_amount / $totalAfterDiscount;
+                            $bookingPaidAmount = $paidAmount * $bookingProportion;
+                            
+                            $booking->payment->amount_paid = $bookingPaidAmount;
+                            $booking->payment->save();
+                            
+                            \Log::info('Updated Room Booking Payment', [
+                                'booking_id' => $bookingId,
+                                'booking_total' => $booking->total_amount,
+                                'proportion' => $bookingProportion,
+                                'paid_amount' => $bookingPaidAmount
+                            ]);
+                        }
+                    }
+                } elseif (!$sale->charged_to_room && $paidAmount >= $totalAfterDiscount) {
+                    // Full payment - update all room booking payments to full amount
+                    foreach ($validated['items'] as $item) {
+                        $isRoom = isset($item['is_room']) && $item['is_room'] === true;
+                        if ($isRoom) {
+                            $room = Room::find($item['id']);
+                            if ($room) {
+                                $booking = RoomBooking::where('room_id', $room->id)
+                                    ->where('created_by', creatorId())
+                                    ->latest()
+                                    ->first();
+                                if ($booking && $booking->payment) {
+                                    $booking->payment->amount_paid = $booking->total_amount;
+                                    $booking->payment->save();
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Update sale status based on payment
                 if ($sale->charged_to_room) {
@@ -870,6 +932,59 @@ class PosController extends Controller
                     $sale->status = 'partial';
                 }
                 $sale->save();
+
+                // ✅ NEW: Update Room Booking Payment if this POS order is linked to a room booking
+                if ($sale->room_booking_id) {
+                    $roomBooking = RoomBooking::find($sale->room_booking_id);
+                    if ($roomBooking && $roomBooking->payment) {
+                        // Add the payment to the room booking payment record
+                        $roomBooking->payment->amount_paid += $request->amount;
+                        $roomBooking->payment->save();
+                        
+                        \Log::info('Room Booking Payment Updated', [
+                            'booking_id' => $roomBooking->id,
+                            'booking_number' => $roomBooking->booking_number,
+                            'payment_added' => $request->amount,
+                            'new_total_paid' => $roomBooking->payment->amount_paid,
+                            'booking_total' => $roomBooking->total_amount,
+                            'remaining_balance' => $roomBooking->total_amount - $roomBooking->payment->amount_paid
+                        ]);
+                    }
+                }
+
+                // ✅ NEW: Also update room booking payments for POS orders with room items
+                $roomItems = $sale->items()->where('item_type', 'room')->get();
+                if ($roomItems->isNotEmpty()) {
+                    foreach ($roomItems as $roomItem) {
+                        // Find the room booking created for this room
+                        $room = Room::find($roomItem->product_id);
+                        if ($room) {
+                            // Find the most recent booking for this room that matches the POS order date
+                            $roomBooking = RoomBooking::where('room_id', $room->id)
+                                ->where('created_by', creatorId())
+                                ->whereDate('created_at', $sale->created_at->toDateString())
+                                ->latest()
+                                ->first();
+                            
+                            if ($roomBooking && $roomBooking->payment) {
+                                // Calculate proportional payment for this room
+                                $itemProportion = $roomItem->total_amount / $payment->amount;
+                                $roomPaymentAmount = $request->amount * $itemProportion;
+                                
+                                $roomBooking->payment->amount_paid += $roomPaymentAmount;
+                                $roomBooking->payment->save();
+                                
+                                \Log::info('Room Booking Payment Updated (from room item)', [
+                                    'booking_id' => $roomBooking->id,
+                                    'booking_number' => $roomBooking->booking_number,
+                                    'room_number' => $room->room_number,
+                                    'payment_added' => $roomPaymentAmount,
+                                    'new_total_paid' => $roomBooking->payment->amount_paid
+                                ]);
+                            }
+                        }
+                    }
+                }
 
                 DB::commit();
                 

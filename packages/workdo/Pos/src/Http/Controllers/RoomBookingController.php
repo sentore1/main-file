@@ -55,6 +55,31 @@ class RoomBookingController extends Controller
                 $query->where('status', $request->get('status'));
             }
 
+            // Date range filter
+            if ($request->filled('date_range')) {
+                $dateRange = $request->get('date_range');
+                $today = Carbon::today();
+                
+                switch ($dateRange) {
+                    case 'today':
+                        $query->whereDate('check_in_date', $today);
+                        break;
+                    case 'week':
+                        $query->whereBetween('check_in_date', [
+                            $today->copy()->startOfWeek(),
+                            $today->copy()->endOfWeek()
+                        ]);
+                        break;
+                    case 'month':
+                        $query->whereYear('check_in_date', $today->year)
+                              ->whereMonth('check_in_date', $today->month);
+                        break;
+                    case 'year':
+                        $query->whereYear('check_in_date', $today->year);
+                        break;
+                }
+            }
+
             if ($request->filled('date_from')) {
                 $query->where('check_in_date', '>=', $request->get('date_from'));
             }
@@ -64,6 +89,20 @@ class RoomBookingController extends Controller
             }
 
             $bookings = $query->latest()->paginate(15)->withQueryString();
+
+            // Calculate summary statistics for filtered results
+            $summaryQuery = clone $query;
+            $allBookings = $summaryQuery->get();
+            
+            $summary = [
+                'total_bookings' => $allBookings->count(),
+                'total_revenue' => $allBookings->sum('total_amount'),
+                'total_paid' => $allBookings->sum(function($booking) {
+                    return $booking->payment ? $booking->payment->amount_paid : 0;
+                }),
+                'total_balance' => 0,
+            ];
+            $summary['total_balance'] = $summary['total_revenue'] - $summary['total_paid'];
 
             $warehouses = Warehouse::where('created_by', creatorId())
                 ->whereIn('id', $warehouseIds)
@@ -89,6 +128,7 @@ class RoomBookingController extends Controller
                 'bookings' => $bookings,
                 'warehouses' => $warehouses,
                 'lateCheckouts' => $lateCheckouts,
+                'summary' => $summary,
             ]);
         }
 
@@ -896,5 +936,112 @@ class RoomBookingController extends Controller
         }
 
         return response()->json(['success' => false, 'message' => 'Permission denied'], 403);
+    }
+
+    public function downloadReport(Request $request)
+    {
+        if (Auth::user()->can('manage-room-bookings')) {
+            $warehouseIds = getUserWarehouseIds();
+            
+            $query = RoomBooking::with([
+                'room:id,room_number,room_type_id',
+                'room.roomType:id,name',
+                'customer:id,name,email',
+                'warehouse:id,name',
+                'payment:booking_id,amount_paid,payment_method'
+            ])
+            ->where('created_by', creatorId())
+            ->whereIn('warehouse_id', $warehouseIds);
+
+            // Apply filters
+            if ($request->filled('search')) {
+                $search = $request->get('search');
+                $query->where(function($q) use ($search) {
+                    $q->where('booking_number', 'like', "%{$search}%")
+                      ->orWhereHas('customer', function($customerQuery) use ($search) {
+                          $customerQuery->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('room', function($roomQuery) use ($search) {
+                          $roomQuery->where('room_number', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($request->filled('warehouse')) {
+                $query->where('warehouse_id', $request->get('warehouse'));
+            }
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->get('status'));
+            }
+
+            // Date range filter
+            if ($request->filled('date_range')) {
+                $dateRange = $request->get('date_range');
+                $today = Carbon::today();
+                
+                switch ($dateRange) {
+                    case 'today':
+                        $query->whereDate('check_in_date', $today);
+                        break;
+                    case 'week':
+                        $query->whereBetween('check_in_date', [
+                            $today->copy()->startOfWeek(),
+                            $today->copy()->endOfWeek()
+                        ]);
+                        break;
+                    case 'month':
+                        $query->whereYear('check_in_date', $today->year)
+                              ->whereMonth('check_in_date', $today->month);
+                        break;
+                    case 'year':
+                        $query->whereYear('check_in_date', $today->year);
+                        break;
+                }
+            }
+
+            if ($request->filled('date_from')) {
+                $query->where('check_in_date', '>=', $request->get('date_from'));
+            }
+
+            if ($request->filled('date_to')) {
+                $query->where('check_out_date', '<=', $request->get('date_to'));
+            }
+
+            $bookings = $query->orderBy('check_in_date', 'desc')->get();
+
+            // Calculate totals
+            $totalAmount = $bookings->sum('total_amount');
+            $totalPaid = $bookings->sum(function($booking) {
+                return $booking->payment ? $booking->payment->amount_paid : 0;
+            });
+            $totalBalance = $totalAmount - $totalPaid;
+
+            // Get date range label for report
+            $dateRangeLabel = 'All Time';
+            if ($request->filled('date_range')) {
+                $dateRangeLabel = match($request->get('date_range')) {
+                    'today' => 'Today',
+                    'week' => 'This Week',
+                    'month' => 'This Month',
+                    'year' => 'This Year',
+                    default => 'All Time'
+                };
+            }
+
+            return Inertia::render('Pos/RoomBookings/Report', [
+                'bookings' => $bookings,
+                'filters' => $request->only(['search', 'warehouse', 'status', 'date_from', 'date_to', 'date_range']),
+                'totals' => [
+                    'total_amount' => $totalAmount,
+                    'total_paid' => $totalPaid,
+                    'total_balance' => $totalBalance,
+                    'count' => $bookings->count(),
+                ],
+                'date_range_label' => $dateRangeLabel,
+            ]);
+        }
+
+        return redirect()->back()->with('error', __('Permission denied'));
     }
 }

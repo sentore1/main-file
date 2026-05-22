@@ -93,6 +93,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Pos'])->group(fun
     Route::get('/room-bookings/available-rooms', [RoomBookingController::class, 'getAvailableRooms'])->name('room-bookings.available-rooms');
     Route::get('/room-bookings/today-breakfast', [RoomBookingController::class, 'getTodayBreakfastBookings'])->name('room-bookings.today-breakfast');
     Route::get('/room-bookings/receipt/{group_id}', [RoomBookingController::class, 'receipt'])->name('room-bookings.receipt');
+    Route::get('/room-bookings-report/download', [RoomBookingController::class, 'downloadReport'])->name('room-bookings.download-report');
     Route::post('/room-bookings/customers/store', [RoomBookingController::class, 'storeCustomer'])->name('room-bookings.customers.store');
     Route::post('/room-bookings/{roomBooking}/check-in', [RoomBookingController::class, 'checkIn'])->name('room-bookings.check-in');
     Route::post('/room-bookings/{roomBooking}/check-out', [RoomBookingController::class, 'checkOut'])->name('room-bookings.check-out');
