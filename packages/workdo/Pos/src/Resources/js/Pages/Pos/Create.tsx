@@ -34,7 +34,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ShoppingCart, Search, CreditCard, Plus, Minus, Trash2, X, Home, Printer, FileText, Image, Package, Barcode, UserPlus, Edit2, Check } from 'lucide-react';
+import { ShoppingCart, Search, CreditCard, Plus, Minus, Trash2, X, Home, Printer, FileText, Image, Package, Barcode, UserPlus, Edit2, Check, Download } from 'lucide-react';
 import { getImagePath, formatCurrency,formatDate } from '@/utils/helpers';
 import { useFavicon } from '@/hooks/use-favicon';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -364,6 +364,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
     const [discountAmount, setDiscountAmount] = useState(0);
     const [waiterName, setWaiterName] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [downloadingBond, setDownloadingBond] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
     const [completedSale, setCompletedSale] = useState<any>(null);
@@ -546,6 +547,69 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
             .then(response => response.json())
             .then(data => setNextPosNumber(data.pos_number))
             .catch(error => console.error('Error fetching new POS number:', error));
+    };
+
+    const handleDownloadBond = async () => {
+        if (downloadingBond) {
+            return;
+        }
+
+        if (cart.length === 0) {
+            alert(t('Please add at least one item to the cart'));
+            return;
+        }
+
+        if (!selectedWarehouse) {
+            alert(t('Please select a warehouse'));
+            return;
+        }
+
+        setDownloadingBond(true);
+
+        try {
+            const formData = {
+                customer_id: selectedCustomer || null,
+                warehouse_id: selectedWarehouse,
+                waiter_name: waiterName || null,
+                items: cart.map(item => ({
+                    id: item.id,
+                    quantity: item.quantity,
+                    price: getItemPrice(item),
+                    notes: item.notes || null,
+                })),
+                discount: discountAmount,
+                paid_amount: parseFloat(paidAmount || '0'),
+            };
+
+            const response = await fetch(route('pos.preview-bond'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/html',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate bond preview');
+            }
+
+            const html = await response.text();
+            const newWindow = window.open('', '_blank', 'width=400,height=600');
+            if (newWindow) {
+                newWindow.document.write(html);
+                newWindow.document.close();
+            } else {
+                alert(t('Please allow popups to view the bond preview'));
+            }
+
+        } catch (error) {
+            console.error('Error downloading bond:', error);
+            alert(t('Failed to download bond preview'));
+        } finally {
+            setDownloadingBond(false);
+        }
     };
 
     const handleAddCustomer = () => {
@@ -1220,6 +1284,14 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                             {formatCurrency(getTotal())}
                                         </span>
                                     </div>
+                                    <Button
+                                        className="w-full h-10 text-sm font-semibold mb-2 bg-gray-600 hover:bg-gray-700"
+                                        onClick={handleDownloadBond}
+                                        disabled={cart.length === 0 || !selectedWarehouse || downloadingBond}
+                                    >
+                                        <Download className="h-4 w-4 mr-2" />
+                                        {downloadingBond ? t('Generating...') : t('Download Bond')}
+                                    </Button>
                                     <Button
                                         className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700"
                                         onClick={() => {

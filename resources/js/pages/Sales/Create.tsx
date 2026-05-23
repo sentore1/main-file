@@ -101,13 +101,8 @@ export default function Create() {
         setData('type', type);
 
         if (type === 'service') {
-            try {
-                const response = await fetch(route('sales-invoices.services'));
-                const services = await response.json();
-                setAvailableProducts(services);
-            } catch (error) {
-                setAvailableProducts([]);
-            }
+            // Don't fetch services yet, wait for warehouse selection
+            setAvailableProducts([]);
         } else {
             setAvailableProducts([]);
             setData('warehouse_id', '');
@@ -124,6 +119,51 @@ export default function Create() {
             tax_amount: 0,
             total_amount: 0
         }]);
+    };
+
+    const handleWarehouseChangeForServices = async (warehouseId: string) => {
+        setData('warehouse_id', warehouseId);
+
+        if (warehouseId && data.type === 'service') {
+            try {
+                const url = route('sales-invoices.services') + `?warehouse_id=${warehouseId}`;
+                console.log('Fetching services from:', url);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    console.error('Response not OK:', response.status, response.statusText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                let text = await response.text();
+                console.log('Raw response length:', text.length);
+                
+                // Remove any script tags that might be injected
+                text = text.replace(/<script[^>]*>.*?<\/script>/gi, '');
+                
+                // Find the JSON array in the response
+                const jsonStart = text.indexOf('[');
+                const jsonEnd = text.lastIndexOf(']') + 1;
+                
+                if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                    const jsonText = text.substring(jsonStart, jsonEnd);
+                    console.log('Extracted JSON length:', jsonText.length);
+                    
+                    const services = JSON.parse(jsonText);
+                    console.log('Services parsed:', services.length, 'items');
+                    console.log('First service:', services[0]);
+                    
+                    setAvailableProducts(services);
+                    console.log('availableProducts updated');
+                } else {
+                    console.error('Could not find JSON array in response');
+                    setAvailableProducts([]);
+                }
+            } catch (error) {
+                console.error('Error fetching services:', error);
+                setAvailableProducts([]);
+            }
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -228,6 +268,27 @@ export default function Create() {
                                             {t('Warehouse')}
                                         </Label>
                                         <Select value={data.warehouse_id} onValueChange={handleWarehouseChange}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('Select Warehouse')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {warehouses.map((warehouse) => (
+                                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                                                        {warehouse.name} - {warehouse.address}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError message={errors.warehouse_id} />
+                                    </div>
+                                )}
+
+                                {data.type === 'service' && (
+                                    <div>
+                                        <Label htmlFor="warehouse_id" required>
+                                            {t('Warehouse')}
+                                        </Label>
+                                        <Select value={data.warehouse_id} onValueChange={handleWarehouseChangeForServices}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('Select Warehouse')} />
                                             </SelectTrigger>

@@ -759,6 +759,319 @@ class PosController extends Controller
         }
     }
 
+    public function edit(Pos $sale)
+    {
+        if(Auth::user()->can('edit-pos') && $sale->created_by == creatorId()){
+            // Load sale with all relationships
+            $sale->load([
+                'customer:id,name,email',
+                'warehouse:id,name',
+                'items:id,pos_id,product_id,item_type,quantity,price,subtotal,tax_ids,tax_amount,total_amount,notes',
+                'items.product:id,name,sku,sale_price,category_id,image,tax_ids',
+                'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'
+            ]);
+
+            // Get customers
+            $customers = User::whereHas('roles', function($query) {
+                $query->where('name', 'client');
+            })->where('created_by', creatorId())->select('id', 'name', 'email')->get();
+
+            // Get warehouses
+            $warehouses = Warehouse::where('created_by', creatorId())
+                ->where('is_active', true)
+                ->select('id', 'name', 'address')
+                ->get();
+
+            // Get categories
+            $categories = ProductServiceCategory::where('created_by', creatorId())
+                ->select('id', 'name', 'color')
+                ->get();
+
+            // Format items for the edit form
+            $sale->items->each(function($item) {
+                $taxes = [];
+                if ($item->tax_ids && is_array($item->tax_ids)) {
+                    $taxes = ProductServiceTax::whereIn('id', $item->tax_ids)
+                        ->where('created_by', creatorId())
+                        ->get(['id', 'tax_name', 'rate'])
+                        ->map(function($tax) {
+                            return [
+                                'id' => $tax->id,
+                                'name' => $tax->tax_name,
+                                'rate' => $tax->rate
+                            ];
+                        })
+                        ->toArray();
+                }
+                $item->taxes = $taxes;
+                
+                // Add product details for the form
+                if ($item->product) {
+                    $item->product_name = $item->product->name;
+                    $item->product_sku = $item->product->sku;
+                    $item->product_image = $item->product->image;
+                }
+            });
+
+            return Inertia::render('Pos/Pos/Edit', [
+                'sale' => $sale,
+                'customers' => $customers,
+                'warehouses' => $warehouses,
+                'categories' => $categories,
+            ]);
+        }else{
+            return redirect()->route('pos.orders')->with('error', __('Permission denied'));
+        }
+    }
+
+    /**
+     * Generate a preview bond/receipt before checkout
+     */
+    public function previewBond(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'customer_id' => 'nullable|exists:users,id',
+                'warehouse_id' => 'required|exists:warehouses,id',
+                'waiter_name' => 'nullable|string',
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|integer',
+                'items.*.quantity' => 'required|numeric|min:0.01',
+                'items.*.price' => 'required|numeric|min:0',
+                'items.*.notes' => 'nullable|string',
+                'discount' => 'nullable|numeric|min:0',
+                'paid_amount' => 'nullable|numeric|min:0',
+            ]);
+
+            // Get customer and warehouse info
+            $customer = $data['customer_id'] ? User::find($data['customer_id']) : null;
+            $warehouse = Warehouse::find($data['warehouse_id']);
+            $waiterName = $data['waiter_name'] ?? null;
+
+            // Prepare items for kitchen
+            $items = [];
+            foreach ($data['items'] as $itemData) {
+                $product = ProductServiceItem::find($itemData['id']);
+                if (!$product) continue;
+
+                $items[] = [
+                    'product_name' => $product->name,
+                    'quantity' => $itemData['quantity'],
+                    'notes' => $itemData['notes'] ?? null,
+                ];
+            }
+
+            // Return simple HTML view for kitchen
+            return view('pos::pos.bond-preview', [
+                'customer' => $customer,
+                'warehouse' => $warehouse,
+                'waiter_name' => $waiterName,
+                'items' => $items,
+                'date' => now()->format('Y-m-d H:i:s'),
+                'order_number' => 'ORD-' . now()->format('YmdHis'),
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Bond preview error: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'error' => 'Failed to generate bond preview',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function update(Request $request, Pos $sale)
+    {
+        \Log::critical('=== POS UPDATE METHOD CALLED ===');
+        \Log::critical('Sale ID: ' . $sale->id);
+        \Log::critical('Request method: ' . $request->method());
+        \Log::critical('Request URL: ' . $request->fullUrl());
+        \Log::critical('Request data: ', $request->all());
+        \Log::critical('User ID: ' . Auth::id());
+        \Log::critical('User can edit-pos: ' . (Auth::user()->can('edit-pos') ? 'YES' : 'NO'));
+        \Log::critical('Sale creator: ' . $sale->created_by . ', Current creator: ' . creatorId());
+        
+        if(Auth::user()->can('edit-pos') && $sale->created_by == creatorId()){
+            \Log::critical('Permission check PASSED');
+            
+            // Validate the request
+            try {
+                $validated = $request->validate([
+                    'customer_id' => 'nullable|exists:users,id',
+                    'warehouse_id' => 'required|exists:warehouses,id',
+                    'pos_date' => 'nullable|date',
+                    'items' => 'required|array|min:1',
+                    'items.*.id' => 'required|integer',
+                    'items.*.quantity' => 'required|numeric|min:1',
+                    'items.*.price' => 'required|numeric|min:0',
+                    'items.*.notes' => 'nullable|string',
+                    'discount' => 'nullable|numeric|min:0',
+                    'paid_amount' => 'nullable|numeric|min:0',
+                ]);
+                \Log::critical('Validation PASSED');
+                \Log::critical('Validated data:', $validated);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                \Log::critical('Validation FAILED');
+                \Log::critical('Errors: ', $e->errors());
+                throw $e;
+            }
+
+            DB::beginTransaction();
+            try {
+                \Log::critical('Starting database transaction');
+                
+                // Store old items for inventory restoration
+                $oldItems = $sale->items()->get();
+                \Log::critical('Old items count: ' . $oldItems->count());
+
+                // Update sale basic info
+                $sale->customer_id = $validated['customer_id'] ?? null;
+                $sale->warehouse_id = $validated['warehouse_id'];
+                $sale->pos_date = $validated['pos_date'] ?? $sale->pos_date;
+                $sale->save();
+                \Log::critical('Sale basic info updated');
+
+                // Delete old items (we'll recreate them)
+                $sale->items()->delete();
+                \Log::critical('Old items deleted');
+
+                // Restore inventory for old items (if inventory tracking is enabled)
+                foreach ($oldItems as $oldItem) {
+                    \Log::critical('Restoring inventory for old item: ' . $oldItem->id);
+                    if ($oldItem->product_id && $oldItem->item_type !== 'room') {
+                        $product = ProductServiceItem::find($oldItem->product_id);
+                        if ($product && $product->type !== 'service') {
+                            // Restore stock
+                            $warehouseStock = WarehouseStock::where('warehouse_id', $sale->warehouse_id)
+                                ->where('product_id', $oldItem->product_id)
+                                ->first();
+                            
+                            if ($warehouseStock) {
+                                $warehouseStock->quantity += $oldItem->quantity;
+                                $warehouseStock->save();
+                                \Log::critical('Stock restored for product: ' . $oldItem->product_id);
+                            }
+                        }
+                    }
+                }
+                \Log::critical('Inventory restoration complete');
+
+                // Create new items
+                $finalAmount = 0;
+                \Log::critical('Processing ' . count($validated['items']) . ' new items');
+                
+                foreach ($validated['items'] as $index => $item) {
+                    \Log::critical('Processing item ' . ($index + 1) . ': Product ID ' . $item['id']);
+                    
+                    // This is a regular product (rooms cannot be edited)
+                    $product = ProductServiceItem::find($item['id']);
+                    if (!$product) {
+                        \Log::critical('Product not found: ' . $item['id']);
+                        continue;
+                    }
+                    
+                    \Log::critical('Product found: ' . $product->name);
+
+                        $subtotal = $item['quantity'] * $item['price'];
+
+                        $taxAmount = 0;
+                        $taxIds = null;
+                        if ($product->tax_ids && is_array($product->tax_ids) && !empty($product->tax_ids)) {
+                            $taxIds = $product->tax_ids;
+                            $taxes = ProductServiceTax::whereIn('id', $taxIds)
+                                ->where('created_by', creatorId())
+                                ->get();
+
+                            foreach ($taxes as $tax) {
+                                $taxAmount += $subtotal * ($tax->rate / 100);
+                            }
+                        }
+
+                        $totalAmount = $subtotal + $taxAmount;
+                        $finalAmount += $totalAmount;
+                        
+                        // Deduct new stock
+                        if ($product->type !== 'service') {
+                            $warehouseStock = WarehouseStock::where('warehouse_id', $validated['warehouse_id'])
+                                ->where('product_id', $item['id'])
+                                ->first();
+                            
+                            if ($warehouseStock) {
+                                if ($warehouseStock->quantity < $item['quantity']) {
+                                    DB::rollBack();
+                                    return back()->with('error', __('Insufficient stock for product: ') . $product->name);
+                                }
+                                $warehouseStock->quantity -= $item['quantity'];
+                                $warehouseStock->save();
+                            }
+                        }
+                        
+                        $saleItem = new PosItem();
+                        $saleItem->pos_id = $sale->id;
+                        $saleItem->product_id = $item['id'];
+                        $saleItem->item_type = 'product';
+                        $saleItem->quantity = $item['quantity'];
+                        $saleItem->price = $item['price'];
+                        $saleItem->tax_ids = $taxIds;
+                        $saleItem->subtotal = $subtotal;
+                        $saleItem->tax_amount = $taxAmount;
+                        $saleItem->total_amount = $totalAmount;
+                        $saleItem->notes = $item['notes'] ?? null;
+                        $saleItem->creator_id = Auth::id();
+                        $saleItem->created_by = creatorId();
+                        $saleItem->save();
+                        \Log::critical('New item saved: ' . $saleItem->id);
+                }
+                \Log::critical('All items processed. Final amount: ' . $finalAmount);
+
+                // Update payment
+                $posPayment = $sale->payment;
+                if ($posPayment) {
+                    $posPayment->discount = $validated['discount'];
+                    $posPayment->amount = $finalAmount;
+                    $posPayment->discount_amount = $finalAmount - $validated['discount'];
+                    $posPayment->paid_amount = $validated['paid_amount'] ?? ($finalAmount - $validated['discount']);
+                    $posPayment->balance_due = ($finalAmount - $validated['discount']) - ($validated['paid_amount'] ?? ($finalAmount - $validated['discount']));
+                    $posPayment->save();
+                } else {
+                    // Create payment if it doesn't exist
+                    $posPayment = new PosPayment();
+                    $posPayment->pos_id = $sale->id;
+                    $posPayment->discount = $validated['discount'];
+                    $posPayment->amount = $finalAmount;
+                    $posPayment->discount_amount = $finalAmount - $validated['discount'];
+                    $posPayment->paid_amount = $validated['paid_amount'] ?? ($finalAmount - $validated['discount']);
+                    $posPayment->balance_due = ($finalAmount - $validated['discount']) - ($validated['paid_amount'] ?? ($finalAmount - $validated['discount']));
+                    $posPayment->creator_id = Auth::id();
+                    $posPayment->created_by = creatorId();
+                    $posPayment->save();
+                }
+
+                // Update sale status based on payment
+                if ($posPayment->balance_due > 0) {
+                    $sale->status = 'partial';
+                } else {
+                    $sale->status = 'completed';
+                }
+                $sale->save();
+
+                DB::commit();
+                \Log::critical('=== POS UPDATE SUCCESSFUL ===');
+                \Log::critical('Redirecting to pos.orders');
+                return redirect()->route('pos.orders')->with('success', __('The POS sale has been updated successfully.'));
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::critical('=== POS UPDATE FAILED ===');
+                \Log::critical('Error: ' . $e->getMessage());
+                \Log::critical('Trace: ' . $e->getTraceAsString());
+                return back()->with('error', __('Update failed: ') . $e->getMessage());
+            }
+        }else{
+            return redirect()->route('pos.orders')->with('error', __('Permission denied'));
+        }
+    }
+
     public function barcode()
     {
         if(Auth::user()->can('manage-pos-barcodes')){

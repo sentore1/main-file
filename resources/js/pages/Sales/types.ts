@@ -30,6 +30,8 @@ export interface SalesInvoiceItem {
     id?: number;
     invoice_id?: number;
     product_id: number;
+    item_type?: 'product' | 'service' | 'room';
+    room_id?: number;
     quantity: number;
     unit_price: number;
     discount_percentage: number;
@@ -39,6 +41,27 @@ export interface SalesInvoiceItem {
     total_amount: number;
     taxes?: Array<{id?: number; tax_name: string; tax_rate: number}>;
     product?: ProductServiceItem;
+    room?: Room;
+}
+
+export interface Room {
+    id: number;
+    room_number: string;
+    room_type_id: number;
+    warehouse_id: number;
+    floor?: string;
+    price_per_night: number;
+    max_occupancy: number;
+    amenities?: string[];
+    description?: string;
+    status: string;
+    room_type?: RoomType;
+}
+
+export interface RoomType {
+    id: number;
+    name: string;
+    description?: string;
 }
 
 export interface User {

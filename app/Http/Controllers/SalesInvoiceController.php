@@ -174,7 +174,7 @@ class SalesInvoiceController extends Controller
                 return redirect()->route('sales-invoices.index')->with('error', __('Permission denied'));
             }
 
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.room.roomType', 'items.taxes', 'warehouse']);
 
             return Inertia::render('Sales/View', [
                 'invoice' => $salesInvoice
@@ -196,7 +196,7 @@ class SalesInvoiceController extends Controller
                 return redirect()->route('sales-invoices.index')->with('error', __('Cannot update posted invoice.'));
             }
 
-            $salesInvoice->load(['items.taxes']);
+            $salesInvoice->load(['items.taxes', 'items.room.roomType']);
 
             EditSalesInvoice::dispatch($salesInvoice);
 
@@ -302,6 +302,8 @@ class SalesInvoiceController extends Controller
             $item = new SalesInvoiceItem();
             $item->invoice_id = $invoiceId;
             $item->product_id = $itemData['product_id'];
+            $item->item_type = $itemData['item_type'] ?? 'product';
+            $item->room_id = $itemData['room_id'] ?? null;
             $item->quantity = $itemData['quantity'];
             $item->unit_price = $itemData['unit_price'];
             $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
@@ -391,6 +393,9 @@ class SalesInvoiceController extends Controller
     public function getServices(Request $request)
     {
         if(Auth::user()->can('create-sales-invoices') || Auth::user()->can('edit-sales-invoices')){
+            $warehouseId = $request->get('warehouse_id');
+            
+            // Get services
             $services = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
                 ->where('type', 'service')
@@ -404,6 +409,7 @@ class SalesInvoiceController extends Controller
                         'sale_price' => $service->sale_price,
                         'unit' => $service->unit,
                         'type' => $service->type,
+                        'item_type' => 'service',
                         'taxes' => $service->taxes->map(function ($tax) {
                             return [
                                 'id' => $tax->id,
@@ -413,7 +419,35 @@ class SalesInvoiceController extends Controller
                         })
                     ];
                 });
-            return response()->json($services);
+            
+            // Get rooms if warehouse is selected
+            $rooms = collect([]);
+            if ($warehouseId && class_exists('\Workdo\Pos\Models\Room')) {
+                $rooms = \Workdo\Pos\Models\Room::with('roomType')
+                    ->where('warehouse_id', $warehouseId)
+                    ->where('created_by', creatorId())
+                    ->where('status', 'available')
+                    ->get()
+                    ->map(function ($room) {
+                        return [
+                            'id' => $room->id,
+                            'name' => 'Room ' . $room->room_number . ($room->roomType ? ' - ' . $room->roomType->name : ''),
+                            'sku' => 'ROOM-' . $room->room_number,
+                            'sale_price' => $room->price_per_night ?? 0,
+                            'unit' => 'night',
+                            'type' => 'room',
+                            'item_type' => 'room',
+                            'room_id' => $room->id,
+                            'room_number' => $room->room_number,
+                            'taxes' => []
+                        ];
+                    });
+            }
+            
+            // Merge services and rooms
+            $allItems = $services->concat($rooms);
+            
+            return response()->json($allItems);
         }
         else{
             return response()->json([], 403);
@@ -423,7 +457,7 @@ class SalesInvoiceController extends Controller
     public function print(SalesInvoice $salesInvoice)
     {
         if(Auth::user()->can('print-sales-invoices')){
-            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $salesInvoice->load(['customer', 'customerDetails', 'items.product', 'items.room.roomType', 'items.taxes', 'warehouse']);
 
             return Inertia::render('Sales/Print', [
                 'invoice' => $salesInvoice

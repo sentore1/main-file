@@ -202,12 +202,26 @@ export default function View() {
                                     {invoice.items?.map((item, index) => (
                                         <tr key={index}>
                                             <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
+                                                <div className="font-medium">
+                                                    {item.item_type === 'room' && item.room ? (
+                                                        `Room ${item.room.room_number}${item.room.room_type ? ' - ' + item.room.room_type.name : ''}`
+                                                    ) : (
+                                                        item.product?.name
+                                                    )}
+                                                </div>
+                                                {item.item_type === 'room' && item.room ? (
+                                                    <div className="text-sm text-muted-foreground">ROOM-{item.room.room_number}</div>
+                                                ) : (
+                                                    item.product?.sku && (
+                                                        <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
+                                                    )
                                                 )}
-                                                {item.product?.description && (
-                                                    <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
+                                                {item.item_type === 'room' && item.room?.description ? (
+                                                    <div className="text-sm text-muted-foreground mt-1">{item.room.description}</div>
+                                                ) : (
+                                                    item.product?.description && (
+                                                        <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
+                                                    )
                                                 )}
                                             </td>
                                             {invoice.type === 'product' && (

@@ -79,6 +79,8 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
         newItems[index] = {
             ...newItems[index],
             product_id: productId,
+            item_type: product?.item_type || product?.type || 'product',
+            room_id: product?.room_id || null,
             unit_price: Number(product?.sale_price) || 0,
             tax_percentage: Number(totalTaxRate) || 0,
             taxes: taxes

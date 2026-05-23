@@ -11,6 +11,8 @@ class SalesInvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'product_id',
+        'item_type',
+        'room_id',
         'quantity',
         'unit_price',
         'discount_percentage',
@@ -40,6 +42,11 @@ class SalesInvoiceItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(\Workdo\ProductService\Models\ProductServiceItem::class, 'product_id');
+    }
+
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(\Workdo\Pos\Models\Room::class, 'room_id');
     }
 
     public function taxes(): HasMany

@@ -65,6 +65,11 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Pos'])->group(fun
     Route::post('/pos/customers', [PosController::class, 'storeCustomer'])->name('pos.customers.store');
     Route::post('/pos/store', [PosController::class, 'store'])->name('pos.store');
     Route::get('/pos/orders/{sale}', [PosController::class, 'show'])->name('pos.show');
+    Route::get('/pos/orders/{sale}/edit', [PosController::class, 'edit'])->name('pos.edit');
+    Route::post('/pos/preview-bond', [PosController::class, 'previewBond'])->name('pos.preview-bond');
+    Route::put('/pos/orders/{sale}', [PosController::class, 'update'])->name('pos.update');
+    Route::patch('/pos/orders/{sale}', [PosController::class, 'update'])->name('pos.update.patch');
+    Route::post('/pos/orders/{sale}/update', [PosController::class, 'update'])->name('pos.update.post');
     Route::post('/pos/orders/{sale}/add-payment', [PosController::class, 'addPayment'])->name('pos.add-payment');
     Route::get('/pos/barcode', [PosController::class, 'barcode'])->name('pos.barcode');
     Route::get('/pos/barcode/{sale}', [PosController::class, 'printBarcode'])->name('pos.barcode.print');

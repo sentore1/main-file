@@ -12,7 +12,7 @@ import { PerPageSelector } from '@/components/ui/per-page-selector';
 import { ListGridToggle } from '@/components/ui/list-grid-toggle';
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from '@/components/ui/pagination';
-import { Eye, ShoppingCart, DollarSign, Download } from 'lucide-react';
+import { Eye, ShoppingCart, DollarSign, Download, Edit } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
 import NoRecordsFound from '@/components/no-records-found';
@@ -258,6 +258,23 @@ export default function Index() {
                                 <p>{t('View')}</p>
                             </TooltipContent>
                         </Tooltip>
+                        {auth.user?.permissions?.includes('edit-pos') && (
+                            <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => router.get(route('pos.edit', sale.id))} 
+                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                    >
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{t('Edit')}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
                         {sale.status === 'partial' && sale.balance_due > 0 && auth.user?.permissions?.includes('manage-pos') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>

@@ -20,6 +20,7 @@ class PermissionTableSeeder extends Seeder
 
             ['name' => 'manage-pos', 'module' => 'pos', 'label' => 'Manage Pos'],
             ['name' => 'create-pos', 'module' => 'pos', 'label' => 'Create Pos'],
+            ['name' => 'edit-pos', 'module' => 'pos', 'label' => 'Edit Pos'],
 
             ['name' => 'manage-pos-orders', 'module' => 'pos-orders', 'label' => 'Manage Pos Orders'],
             ['name' => 'view-pos-orders', 'module' => 'pos-orders', 'label' => 'View Pos Orders'],

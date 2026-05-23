@@ -17,6 +17,11 @@ class PosServiceProvider extends ServiceProvider
         if (is_dir($migrationsPath)) {
             $this->loadMigrationsFrom($migrationsPath);
         }
+        
+        $viewsPath = __DIR__.'/../Resources/views';
+        if (is_dir($viewsPath)) {
+            $this->loadViewsFrom($viewsPath, 'pos');
+        }
     }
 
     public function register(): void

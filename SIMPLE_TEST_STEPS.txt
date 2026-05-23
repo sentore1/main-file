@@ -1,0 +1,80 @@
+=== SIMPLE TESTING STEPS FOR POS EDIT ===
+
+Run these commands one by one in your SSH terminal:
+
+STEP 1: Build the frontend
+------------------------
+npm run build
+
+(Wait for it to complete - takes about 1 minute)
+
+
+STEP 2: Clear caches
+--------------------
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
+
+STEP 3: Test the sale data
+--------------------------
+php test_update_442.php
+
+(This will show if validation and permissions are OK)
+
+
+STEP 4: Test in browser
+-----------------------
+1. Open: https://pryro.eastgatehotel.rw/pos/orders/442/edit
+2. Press F12 to open Developer Tools
+3. Click on "Console" tab
+4. Click "Update Sale" button
+5. Watch the console for messages
+
+
+WHAT TO LOOK FOR IN CONSOLE:
+----------------------------
+✓ GOOD: You see "=== UPDATE SALE CLICKED ==="
+✓ GOOD: You see "onStart triggered - Request sent"
+✓ GOOD: You see "Update successful"
+
+✗ BAD: Nothing appears (JavaScript not loaded)
+✗ BAD: "route is not defined" error
+✗ BAD: Network error or 404/419/422 error
+
+
+STEP 5: Check Network Tab
+-------------------------
+1. In Developer Tools, click "Network" tab
+2. Click "Update Sale" button again
+3. Look for a request to "442" or "pos/orders/442"
+4. Click on it to see:
+   - Status code (should be 200 or 302)
+   - Response data
+   - Any error messages
+
+
+COMMON ISSUES & FIXES:
+---------------------
+
+Issue: Nothing happens when clicking button
+Fix: Check if JavaScript loaded - look for errors in Console tab
+
+Issue: "419 Page Expired" error
+Fix: Refresh the page (F5) and try again
+
+Issue: "404 Not Found" error  
+Fix: Route might be wrong - check the URL in Network tab
+
+Issue: "422 Validation Error"
+Fix: Check what validation failed in the Response tab
+
+Issue: "403 Forbidden"
+Fix: Permission issue - run: php test_edit_permission.php
+
+
+AFTER TESTING:
+-------------
+Copy any error messages you see and share them.
+Also share what you see in the Console and Network tabs.

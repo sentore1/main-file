@@ -160,9 +160,19 @@ export default function Print() {
                             {invoice.items?.map((item, index) => (
                                 <tr key={index} className="page-break-inside-avoid">
                                     <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
+                                        <div className="font-semibold">
+                                            {item.item_type === 'room' && item.room ? (
+                                                `Room ${item.room.room_number}${item.room.room_type ? ' - ' + item.room.room_type.name : ''}`
+                                            ) : (
+                                                item.product?.name
+                                            )}
+                                        </div>
+                                        {item.item_type === 'room' && item.room ? (
+                                            <div className="text-xs text-gray-500">ROOM-{item.room.room_number}</div>
+                                        ) : (
+                                            item.product?.sku && (
+                                                <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
+                                            )
                                         )}
                                     </td>
                                     {invoice.type === 'product' && (
