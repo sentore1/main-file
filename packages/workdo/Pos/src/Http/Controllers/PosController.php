@@ -45,7 +45,7 @@ class PosController extends Controller
                     ->toArray();
             }
             
-            $query = Pos::with(['customer:id,name,email', 'warehouse:id,name', 'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'])
+            $query = Pos::with(['customer:id,name,email', 'warehouse:id,name', 'payment:pos_id,discount,amount,discount_amount,payment_method,paid_amount,balance_due'])
                 ->withCount('items')
                 ->where('created_by', creatorId())
                 ->whereIn('warehouse_id', $warehouseIds);
@@ -123,6 +123,7 @@ class PosController extends Controller
                 $sale->total = $sale->payment ? $sale->payment->discount_amount : 0;
                 $sale->paid_amount = $sale->payment ? $sale->payment->paid_amount : 0;
                 $sale->balance_due = $sale->payment ? $sale->payment->balance_due : 0;
+                $sale->payment_method = $sale->payment ? $sale->payment->payment_method : 'cash';
                 return $sale;
             });
 
@@ -574,6 +575,7 @@ class PosController extends Controller
                 $posPayment->discount = $discount;
                 $posPayment->amount = $totalBeforeDiscount;
                 $posPayment->discount_amount = $totalAfterDiscount;
+                $posPayment->payment_method = $validated['payment_method'] ?? 'cash';
                 $posPayment->paid_amount = $paidAmount;
                 $posPayment->balance_due = $balanceDue;
                 $posPayment->creator_id = Auth::id();
@@ -715,7 +717,7 @@ class PosController extends Controller
                 'items.product:id,name,sku',
                 'items.room:id,room_number,room_type_id',
                 'items.room.roomType:id,name',
-                'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'
+                'payment:pos_id,discount,amount,discount_amount,payment_method,paid_amount,balance_due'
             ]);
             $totals = PosItem::where('pos_id', $sale->id)
                 ->selectRaw('SUM(subtotal) as subtotal, SUM(tax_amount) as tax_amount, SUM(total_amount) as total_amount')
@@ -727,6 +729,7 @@ class PosController extends Controller
             $sale->total_amount = $sale->payment ? $sale->payment->discount_amount : 0;
             $sale->paid_amount = $sale->payment ? $sale->payment->paid_amount : 0;
             $sale->balance_due = $sale->payment ? $sale->payment->balance_due : 0;
+            $sale->payment_method = $sale->payment ? $sale->payment->payment_method : 'cash';
 
             $sale->items->each(function($item) {
                 // Add item name and SKU based on type
@@ -1033,6 +1036,7 @@ class PosController extends Controller
                     $posPayment->discount_amount = $finalAmount - $validated['discount'];
                     $posPayment->paid_amount = $validated['paid_amount'] ?? ($finalAmount - $validated['discount']);
                     $posPayment->balance_due = ($finalAmount - $validated['discount']) - ($validated['paid_amount'] ?? ($finalAmount - $validated['discount']));
+                    $posPayment->payment_method = $validated['payment_method'] ?? $posPayment->payment_method ?? 'cash';
                     $posPayment->save();
                 } else {
                     // Create payment if it doesn't exist
@@ -1041,6 +1045,7 @@ class PosController extends Controller
                     $posPayment->discount = $validated['discount'];
                     $posPayment->amount = $finalAmount;
                     $posPayment->discount_amount = $finalAmount - $validated['discount'];
+                    $posPayment->payment_method = $validated['payment_method'] ?? 'cash';
                     $posPayment->paid_amount = $validated['paid_amount'] ?? ($finalAmount - $validated['discount']);
                     $posPayment->balance_due = ($finalAmount - $validated['discount']) - ($validated['paid_amount'] ?? ($finalAmount - $validated['discount']));
                     $posPayment->creator_id = Auth::id();
@@ -1110,7 +1115,7 @@ class PosController extends Controller
                 'items.product:id,name,sku',
                 'items.room:id,room_number,room_type_id',
                 'items.room.roomType:id,name',
-                'payment:pos_id,discount,amount,discount_amount,paid_amount,balance_due'
+                'payment:pos_id,discount,amount,discount_amount,payment_method,paid_amount,balance_due'
             ]);
 
             $totals = PosItem::where('pos_id', $sale->id)
@@ -1123,6 +1128,7 @@ class PosController extends Controller
             $sale->total_amount = $sale->payment ? $sale->payment->discount_amount : 0;
             $sale->paid_amount = $sale->payment ? $sale->payment->paid_amount : 0;
             $sale->balance_due = $sale->payment ? $sale->payment->balance_due : 0;
+            $sale->payment_method = $sale->payment ? $sale->payment->payment_method : 'cash';
 
             $sale->items->each(function($item) {
                 // Add item name and SKU based on type
@@ -1213,7 +1219,7 @@ class PosController extends Controller
         if(Auth::user()->can('manage-pos') && $sale->created_by == creatorId()){
             $request->validate([
                 'amount' => 'required|numeric|min:0.01',
-                'payment_method' => 'required|string|in:cash,card,bank_transfer,mtn_momo,airtel_money',
+                'payment_method' => 'required|string|in:cash,card,bank_transfer,mtn_momo,airtel_money,bank,check',
                 'bank_account_id' => 'nullable|exists:bank_accounts,id',
             ]);
 
@@ -1400,10 +1406,12 @@ class PosController extends Controller
                     $sale->total = $sale->payment->amount ?? 0;
                     $sale->paid_amount = $sale->payment->paid_amount ?? 0;
                     $sale->balance_due = $sale->payment->balance_due ?? 0;
+                    $sale->payment_method = $sale->payment->payment_method ?? 'cash';
                 } else {
                     $sale->total = 0;
                     $sale->paid_amount = 0;
                     $sale->balance_due = 0;
+                    $sale->payment_method = 'cash';
                 }
             });
 

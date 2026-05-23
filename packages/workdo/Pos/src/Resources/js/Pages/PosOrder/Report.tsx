@@ -17,6 +17,7 @@ interface PosSale {
     total: number;
     paid_amount: number;
     balance_due: number;
+    payment_method?: string;
     pos_date: string;
 }
 
@@ -115,29 +116,47 @@ export default function Report() {
                                 <th className="border border-gray-300 px-4 py-2 text-left">{t('Date')}</th>
                                 <th className="border border-gray-300 px-4 py-2 text-right">{t('Total')}</th>
                                 <th className="border border-gray-300 px-4 py-2 text-right">{t('Paid')}</th>
+                                <th className="border border-gray-300 px-4 py-2 text-center">{t('Payment Mode')}</th>
                                 <th className="border border-gray-300 px-4 py-2 text-right">{t('Balance')}</th>
                                 <th className="border border-gray-300 px-4 py-2 text-center">{t('Status')}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {sales.map((sale) => (
-                                <tr key={sale.id}>
-                                    <td className="border border-gray-300 px-4 py-2">{sale.sale_number}</td>
-                                    <td className="border border-gray-300 px-4 py-2">{sale.customer?.name || t('Walk-in Customer')}</td>
-                                    <td className="border border-gray-300 px-4 py-2">{sale.warehouse?.name || '-'}</td>
-                                    <td className="border border-gray-300 px-4 py-2">{formatDate(sale.pos_date)}</td>
-                                    <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.total)}</td>
-                                    <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.paid_amount)}</td>
-                                    <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.balance_due)}</td>
-                                    <td className="border border-gray-300 px-4 py-2 text-center capitalize">{sale.status}</td>
-                                </tr>
-                            ))}
+                            {sales.map((sale) => {
+                                const paymentMethodLabels: Record<string, string> = {
+                                    cash: t('Cash'),
+                                    card: t('Card'),
+                                    bank_transfer: t('Bank Transfer'),
+                                    mobile_money: t('Mobile Money'),
+                                    mtn_momo: t('MTN MoMo'),
+                                    airtel_money: t('Airtel Money'),
+                                    bank: t('Bank'),
+                                    check: t('Check'),
+                                    charge_to_room: t('Charge to Room')
+                                };
+                                const paymentMethod = sale.payment_method || 'cash';
+                                
+                                return (
+                                    <tr key={sale.id}>
+                                        <td className="border border-gray-300 px-4 py-2">{sale.sale_number}</td>
+                                        <td className="border border-gray-300 px-4 py-2">{sale.customer?.name || t('Walk-in Customer')}</td>
+                                        <td className="border border-gray-300 px-4 py-2">{sale.warehouse?.name || '-'}</td>
+                                        <td className="border border-gray-300 px-4 py-2">{formatDate(sale.pos_date)}</td>
+                                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.total)}</td>
+                                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.paid_amount)}</td>
+                                        <td className="border border-gray-300 px-4 py-2 text-center">{paymentMethodLabels[paymentMethod] || paymentMethod}</td>
+                                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(sale.balance_due)}</td>
+                                        <td className="border border-gray-300 px-4 py-2 text-center capitalize">{sale.status}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                         <tfoot>
                             <tr className="bg-gray-100 font-bold">
                                 <td colSpan={4} className="border border-gray-300 px-4 py-2 text-right">{t('Total')}:</td>
                                 <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totalAmount)}</td>
                                 <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totalPaid)}</td>
+                                <td className="border border-gray-300 px-4 py-2"></td>
                                 <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totalBalance)}</td>
                                 <td className="border border-gray-300 px-4 py-2"></td>
                             </tr>

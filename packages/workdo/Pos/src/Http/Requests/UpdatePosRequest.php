@@ -17,6 +17,7 @@ class UpdatePosRequest extends FormRequest
             'customer_id' => 'nullable|exists:users,id',
             'warehouse_id' => 'required|exists:warehouses,id',
             'pos_date' => 'nullable|date',
+            'payment_method' => 'nullable|in:cash,card,bank_transfer,mobile_money,mtn_momo,airtel_money,bank,check,charge_to_room',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|integer',
             'items.*.quantity' => 'required|numeric|min:1',

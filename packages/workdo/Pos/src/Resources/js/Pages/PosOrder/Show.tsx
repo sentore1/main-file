@@ -61,6 +61,7 @@ interface PosSale {
     total_amount?: number;
     paid_amount?: number;
     balance_due?: number;
+    payment_method?: string;
     pos_date: string;
     status?: string;
     created_at: string;
@@ -298,6 +299,26 @@ export default function Show() {
                                                 <span className="font-semibold">{t('Paid Amount')}</span>
                                                 <span className="font-bold">{formatCurrency(sale.paid_amount || 0)}</span>
                                             </div>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">{t('Payment Method')}</span>
+                                            <span className="font-medium">
+                                                {(() => {
+                                                    const paymentMethodLabels: Record<string, string> = {
+                                                        cash: t('Cash'),
+                                                        card: t('Card'),
+                                                        bank_transfer: t('Bank Transfer'),
+                                                        mobile_money: t('Mobile Money'),
+                                                        mtn_momo: t('MTN MoMo'),
+                                                        airtel_money: t('Airtel Money'),
+                                                        bank: t('Bank'),
+                                                        check: t('Check'),
+                                                        charge_to_room: t('Charge to Room')
+                                                    };
+                                                    const method = sale.payment_method || 'cash';
+                                                    return paymentMethodLabels[method] || method;
+                                                })()}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between text-orange-600">
                                             <span className="font-semibold">{t('Balance Due')}</span>

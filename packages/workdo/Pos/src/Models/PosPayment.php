@@ -12,6 +12,7 @@ class PosPayment extends Model
         'discount',
         'amount',
         'discount_amount',
+        'payment_method',
         'paid_amount',
         'balance_due',
         'creator_id',

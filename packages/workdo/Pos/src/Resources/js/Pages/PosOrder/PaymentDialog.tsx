@@ -111,6 +111,8 @@ export default function PaymentDialog({ open, onClose, sale }: PaymentDialogProp
                                     <SelectItem value="bank_transfer">{t('Bank Transfer')}</SelectItem>
                                     <SelectItem value="mtn_momo">{t('MTN Mobile Money')}</SelectItem>
                                     <SelectItem value="airtel_money">{t('Airtel Money')}</SelectItem>
+                                    <SelectItem value="bank">{t('Bank')}</SelectItem>
+                                    <SelectItem value="check">{t('Check')}</SelectItem>
                                 </SelectContent>
                             </Select>
                             {errors.payment_method && (

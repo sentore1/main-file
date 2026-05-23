@@ -22,7 +22,7 @@ class StorePosRequest extends FormRequest
             'pos_date' => 'nullable|date',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
             'waiter_name' => 'nullable|string|max:255',
-            'payment_method' => 'nullable|in:cash,card,bank_transfer,mobile_money,mtn_momo,airtel_money,charge_to_room',
+            'payment_method' => 'nullable|in:cash,card,bank_transfer,mobile_money,mtn_momo,airtel_money,bank,check,charge_to_room',
             'check_in_date' => 'nullable|date',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|integer',

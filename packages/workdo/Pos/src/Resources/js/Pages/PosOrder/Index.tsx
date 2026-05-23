@@ -35,6 +35,7 @@ interface PosSale {
     total: number;
     paid_amount: number;
     balance_due: number;
+    payment_method: string;
     tax_amount: number;
     pos_date: string;
     created_at: string;
@@ -213,6 +214,29 @@ export default function Index() {
             )
         },
         {
+            key: 'payment_method',
+            header: t('Payment Mode'),
+            render: (_: any, sale: PosSale) => {
+                const paymentMethodLabels: Record<string, string> = {
+                    cash: t('Cash'),
+                    card: t('Card'),
+                    bank_transfer: t('Bank Transfer'),
+                    mobile_money: t('Mobile Money'),
+                    mtn_momo: t('MTN MoMo'),
+                    airtel_money: t('Airtel Money'),
+                    bank: t('Bank'),
+                    check: t('Check'),
+                    charge_to_room: t('Charge to Room')
+                };
+                const method = sale.payment_method || 'cash';
+                return (
+                    <Badge variant="outline" className="font-medium">
+                        {paymentMethodLabels[method] || method}
+                    </Badge>
+                );
+            }
+        },
+        {
             key: 'balance_due',
             header: t('Balance'),
             render: (_: any, sale: PosSale) => (
@@ -275,7 +299,7 @@ export default function Index() {
                                 </TooltipContent>
                             </Tooltip>
                         )}
-                        {sale.status === 'partial' && sale.balance_due > 0 && auth.user?.permissions?.includes('manage-pos') && (
+                        {(sale.status === 'partial' || sale.status === 'pending') && sale.balance_due > 0 && auth.user?.permissions?.includes('manage-pos') && (
                             <Tooltip delayDuration={0}>
                                 <TooltipTrigger asChild>
                                     <Button 

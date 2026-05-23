@@ -1494,6 +1494,28 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                 />
                                                 <span className="text-sm">{t('Airtel Money')}</span>
                                             </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    value="bank"
+                                                    checked={paymentMethod === 'bank'}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm">{t('Bank')}</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    value="check"
+                                                    checked={paymentMethod === 'check'}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm">{t('Check')}</span>
+                                            </label>
                                             {selectedRoomBooking && (
                                                 <label className="flex items-center space-x-2 cursor-pointer bg-orange-50 p-2 rounded border border-orange-200">
                                                     <input
