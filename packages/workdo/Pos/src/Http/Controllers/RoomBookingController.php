@@ -53,6 +53,9 @@ class RoomBookingController extends Controller
 
             if ($request->filled('status')) {
                 $query->where('status', $request->get('status'));
+            } else {
+                // Exclude cancelled bookings by default unless specifically filtered
+                $query->where('status', '!=', 'cancelled');
             }
 
             // Date range filter
@@ -245,7 +248,7 @@ class RoomBookingController extends Controller
                     'items.*.custom_price' => 'nullable|numeric|min:0',
                     'items.*.item_notes' => 'nullable|string|max:500',
                     'discount' => 'nullable|numeric|min:0',
-                    'payment_method' => 'required|in:cash,card,bank_transfer,mobile_money',
+                    'payment_method' => 'required|in:cash,card,bank_transfer,mobile_money,mtn_momo,airtel_money,bank,check,charge_to_room',
                     'bank_account_id' => 'nullable|exists:bank_accounts,id',
                 ]);
             } else {
@@ -260,7 +263,7 @@ class RoomBookingController extends Controller
                     'notes' => 'nullable|string',
                     'discount' => 'nullable|numeric|min:0',
                     'bank_account_id' => 'nullable|exists:bank_accounts,id',
-                    'payment_method' => 'required|in:cash,card,bank_transfer,mobile_money',
+                    'payment_method' => 'required|in:cash,card,bank_transfer,mobile_money,mtn_momo,airtel_money,bank,check,charge_to_room',
                 ]);
             }
 
@@ -973,6 +976,9 @@ class RoomBookingController extends Controller
 
             if ($request->filled('status')) {
                 $query->where('status', $request->get('status'));
+            } else {
+                // Exclude cancelled bookings by default unless specifically filtered
+                $query->where('status', '!=', 'cancelled');
             }
 
             // Date range filter
