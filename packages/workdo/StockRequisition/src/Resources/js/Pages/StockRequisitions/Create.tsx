@@ -29,9 +29,11 @@ export default function Create() {
         priority: 'normal',
         purpose: '',
         notes: '',
+        unfound_items: '',
         items: [{
             product_id: 0,
             quantity: 1,
+            estimated_price: '',
             notes: ''
         }]
     });
@@ -69,12 +71,13 @@ export default function Create() {
         setData('items', [{
             product_id: 0,
             quantity: 1,
+            estimated_price: '',
             notes: ''
         }]);
     };
 
     const addItem = () => {
-        setData('items', [...data.items, { product_id: 0, quantity: 1, notes: '' }]);
+        setData('items', [...data.items, { product_id: 0, quantity: 1, estimated_price: '', notes: '' }]);
     };
 
     const removeItem = (index: number) => {
@@ -199,6 +202,20 @@ export default function Create() {
                                 />
                             </div>
                         </div>
+
+                        <div className="mt-4">
+                            <Label htmlFor="unfound_items">{t('Unfound Items in System')}</Label>
+                            <Textarea
+                                id="unfound_items"
+                                value={data.unfound_items}
+                                onChange={(e) => setData('unfound_items', e.target.value)}
+                                rows={3}
+                                placeholder={t('List items that are not in the system and need to be added...')}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {t('Use this field to request items that don\'t exist in the system yet')}
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -219,7 +236,7 @@ export default function Create() {
                         <div className="space-y-4">
                             {data.items.map((item, index) => (
                                 <div key={index} className="flex gap-4 items-start border p-4 rounded-lg">
-                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label required>{t('Product')}</Label>
                                             <Select
@@ -247,6 +264,18 @@ export default function Create() {
                                                 step="0.01"
                                                 value={item.quantity}
                                                 onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value))}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <Label>{t('Estimated Price')}</Label>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={item.estimated_price}
+                                                onChange={(e) => updateItem(index, 'estimated_price', e.target.value)}
+                                                placeholder={t('Price per unit')}
                                             />
                                         </div>
 

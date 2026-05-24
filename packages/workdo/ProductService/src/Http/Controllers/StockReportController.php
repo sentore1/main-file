@@ -177,7 +177,7 @@ class StockReportController extends Controller
         if (Auth::user()->can('create-stock-report')) {
             $validated = $request->validate([
                 'report_date' => 'required|date',
-                'report_type' => 'required|in:opening,closing',
+                'report_type' => 'required|in:opening,closing,received',
                 'warehouse_id' => 'nullable|exists:warehouses,id',
                 'items' => 'required|array|min:1',
                 'items.*.product_id' => 'required|exists:product_service_items,id',
@@ -272,6 +272,89 @@ class StockReportController extends Controller
             $report = StockReport::findOrFail($id);
             $report->delete();
             return back()->with('success', __('Stock report deleted successfully.'));
+        }
+        return back()->with('error', __('Permission denied'));
+    }
+
+    /**
+     * Show comprehensive stock report with opening, received, and closing stock
+     */
+    public function comprehensive(Request $request)
+    {
+        if (Auth::user()->can('view-stock-report')) {
+            $validated = $request->validate([
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'warehouse_id' => 'nullable|exists:warehouses,id',
+            ]);
+
+            $startDate = $validated['start_date'];
+            $endDate = $validated['end_date'];
+            $warehouseId = $validated['warehouse_id'] ?? null;
+
+            // Get all products
+            $products = ProductServiceItem::where('type', '!=', 'service')
+                ->where('created_by', creatorId())
+                ->with('category')
+                ->get();
+
+            $reportData = [];
+
+            foreach ($products as $product) {
+                // Get opening stock (closing stock from day before start date)
+                $openingStock = StockReport::where('created_by', creatorId())
+                    ->where('product_id', $product->id)
+                    ->where('report_type', 'closing')
+                    ->whereDate('report_date', '<', $startDate)
+                    ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+                    ->orderBy('report_date', 'desc')
+                    ->first();
+
+                // Get received stock during the period
+                $receivedStock = StockReport::where('created_by', creatorId())
+                    ->where('product_id', $product->id)
+                    ->where('report_type', 'received')
+                    ->whereBetween('report_date', [$startDate, $endDate])
+                    ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+                    ->sum('quantity');
+
+                // Get closing stock
+                $closingStock = StockReport::where('created_by', creatorId())
+                    ->where('product_id', $product->id)
+                    ->where('report_type', 'closing')
+                    ->whereDate('report_date', $endDate)
+                    ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+                    ->first();
+
+                // Calculate issued/sold (Opening + Received - Closing)
+                $opening = $openingStock ? $openingStock->quantity : 0;
+                $closing = $closingStock ? $closingStock->quantity : 0;
+                $issued = $opening + $receivedStock - $closing;
+
+                $reportData[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'sku' => $product->sku,
+                    'category' => $product->category?->name ?? 'Uncategorized',
+                    'opening_stock' => $opening,
+                    'received_stock' => $receivedStock,
+                    'issued_stock' => $issued,
+                    'closing_stock' => $closing,
+                ];
+            }
+
+            // Group by category
+            $groupedData = collect($reportData)->groupBy('category');
+
+            $warehouse = $warehouseId ? Warehouse::find($warehouseId) : null;
+
+            return Inertia::render('ProductService/StockReports/Comprehensive', [
+                'reportData' => $groupedData,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'warehouse' => $warehouse,
+                'warehouses' => Warehouse::where('created_by', creatorId())->get(['id', 'name']),
+            ]);
         }
         return back()->with('error', __('Permission denied'));
     }

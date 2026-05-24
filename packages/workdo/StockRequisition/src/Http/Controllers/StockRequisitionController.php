@@ -111,6 +111,7 @@ class StockRequisitionController extends Controller
                 $requisition->priority = $request->priority ?? 'normal';
                 $requisition->purpose = $request->purpose;
                 $requisition->notes = $request->notes;
+                $requisition->unfound_items = $request->unfound_items;
                 $requisition->status = 'pending';
                 $requisition->creator_id = Auth::id();
                 $requisition->created_by = creatorId();
@@ -122,6 +123,7 @@ class StockRequisitionController extends Controller
                     $item->requisition_id = $requisition->id;
                     $item->product_id = $itemData['product_id'];
                     $item->quantity_requested = $itemData['quantity'];
+                    $item->estimated_price = $itemData['estimated_price'] ?? null;
                     $item->notes = $itemData['notes'] ?? null;
                     $item->creator_id = Auth::id();
                     $item->created_by = creatorId();
@@ -227,6 +229,7 @@ class StockRequisitionController extends Controller
                 $stockRequisition->priority = $request->priority ?? 'normal';
                 $stockRequisition->purpose = $request->purpose;
                 $stockRequisition->notes = $request->notes;
+                $stockRequisition->unfound_items = $request->unfound_items;
                 $stockRequisition->save();
 
                 // Delete old items and create new ones
@@ -236,6 +239,7 @@ class StockRequisitionController extends Controller
                     $item->requisition_id = $stockRequisition->id;
                     $item->product_id = $itemData['product_id'];
                     $item->quantity_requested = $itemData['quantity'];
+                    $item->estimated_price = $itemData['estimated_price'] ?? null;
                     $item->notes = $itemData['notes'] ?? null;
                     $item->creator_id = Auth::id();
                     $item->created_by = creatorId();

@@ -14,6 +14,7 @@ class StockRequisitionItem extends Model
         'quantity_requested',
         'quantity_approved',
         'quantity_fulfilled',
+        'estimated_price',
         'notes',
         'creator_id',
         'created_by'
@@ -23,6 +24,7 @@ class StockRequisitionItem extends Model
         'quantity_requested' => 'decimal:2',
         'quantity_approved' => 'decimal:2',
         'quantity_fulfilled' => 'decimal:2',
+        'estimated_price' => 'decimal:2',
     ];
 
     public function requisition(): BelongsTo

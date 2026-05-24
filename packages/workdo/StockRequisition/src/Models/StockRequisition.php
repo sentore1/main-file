@@ -25,6 +25,7 @@ class StockRequisition extends Model
         'fulfilled_at',
         'purpose',
         'notes',
+        'unfound_items',
         'rejection_reason',
         'creator_id',
         'created_by'

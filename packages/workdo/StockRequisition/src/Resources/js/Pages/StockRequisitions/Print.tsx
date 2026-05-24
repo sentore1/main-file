@@ -10,6 +10,7 @@ interface StockRequisitionItem {
     quantity_requested: string;
     quantity_approved: string | null;
     quantity_fulfilled: string;
+    estimated_price: string | null;
     notes: string | null;
     product?: {
         id: number;
@@ -29,6 +30,7 @@ interface StockRequisition {
     department: string;
     purpose: string;
     notes: string | null;
+    unfound_items: string | null;
     warehouse_id: number;
     warehouse?: {
         id: number;
@@ -214,14 +216,15 @@ export default function Print() {
                     <table className="w-full table-fixed">
                         <thead>
                             <tr className="border-b-2 border-gray-300">
-                                <th className="text-left py-3 font-bold">{t('ITEM')}</th>
-                                <th className="text-center py-3 font-bold">{t('REQUESTED')}</th>
+                                <th className="text-left py-3 font-bold w-1/3">{t('ITEM')}</th>
+                                <th className="text-center py-3 font-bold w-20">{t('REQUESTED')}</th>
                                 {requisition.status === 'approved' && (
-                                    <th className="text-center py-3 font-bold">{t('APPROVED')}</th>
+                                    <th className="text-center py-3 font-bold w-20">{t('APPROVED')}</th>
                                 )}
                                 {requisition.status === 'fulfilled' && (
-                                    <th className="text-center py-3 font-bold">{t('FULFILLED')}</th>
+                                    <th className="text-center py-3 font-bold w-20">{t('FULFILLED')}</th>
                                 )}
+                                <th className="text-right py-3 font-bold w-24">{t('EST. PRICE')}</th>
                                 <th className="text-left py-3 font-bold">{t('NOTES')}</th>
                             </tr>
                         </thead>
@@ -247,6 +250,9 @@ export default function Print() {
                                             {item.quantity_fulfilled} {item.product?.unit}
                                         </td>
                                     )}
+                                    <td className="text-right py-4">
+                                        {item.estimated_price ? formatCurrency(parseFloat(item.estimated_price)) : '-'}
+                                    </td>
                                     <td className="py-4 text-sm">{item.notes || '-'}</td>
                                 </tr>
                             ))}
@@ -259,6 +265,16 @@ export default function Print() {
                     <div className="mb-8">
                         <h3 className="font-bold mb-2">{t('NOTES')}</h3>
                         <p className="text-sm">{requisition.notes}</p>
+                    </div>
+                )}
+
+                {/* Unfound Items */}
+                {requisition.unfound_items && (
+                    <div className="mb-8">
+                        <h3 className="font-bold mb-2">{t('UNFOUND ITEMS IN SYSTEM')}</h3>
+                        <div className="text-sm bg-gray-50 p-3 rounded border border-gray-200 whitespace-pre-wrap">
+                            {requisition.unfound_items}
+                        </div>
                     </div>
                 )}
 

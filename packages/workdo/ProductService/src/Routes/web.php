@@ -54,6 +54,7 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:ProductService'])
     Route::prefix('product-service/stock-reports')->name('product-service.stock-reports.')->group(function () {
         Route::get('/', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'index'])->name('index');
         Route::get('/list', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'listReports'])->name('list');
+        Route::get('/comprehensive', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'comprehensive'])->name('comprehensive');
         Route::get('/create', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'create'])->name('create');
         Route::post('/', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'store'])->name('store');
         Route::get('/{date}/{type}', [\Workdo\ProductService\Http\Controllers\StockReportController::class, 'show'])->name('show');

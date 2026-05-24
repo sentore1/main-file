@@ -134,6 +134,7 @@ export default function Create() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="opening">{t('Opening Stock')}</SelectItem>
+                                        <SelectItem value="received">{t('Received Stock')}</SelectItem>
                                         <SelectItem value="closing">{t('Closing Stock')}</SelectItem>
                                     </SelectContent>
                                 </Select>

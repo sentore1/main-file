@@ -185,6 +185,13 @@ export default function View({ requisition, permissions }: ViewProps) {
                             </div>
                         )}
 
+                        {requisition.unfound_items && (
+                            <div className="mt-4">
+                                <div className="text-sm text-muted-foreground mb-1">{t('Unfound Items in System')}</div>
+                                <div className="text-sm whitespace-pre-wrap bg-muted p-3 rounded-md">{requisition.unfound_items}</div>
+                            </div>
+                        )}
+
                         {requisition.rejection_reason && (
                             <div className="mt-4 p-4 bg-destructive/10 rounded-lg">
                                 <div className="text-sm font-medium text-destructive mb-1">{t('Rejection Reason')}</div>
@@ -216,6 +223,7 @@ export default function View({ requisition, permissions }: ViewProps) {
                                             <th className="text-right py-3 px-4">{t('Fulfilled')}</th>
                                         )}
                                         <th className="text-left py-3 px-4">{t('Unit')}</th>
+                                        <th className="text-right py-3 px-4">{t('Est. Price')}</th>
                                         <th className="text-left py-3 px-4">{t('Notes')}</th>
                                     </tr>
                                 </thead>
@@ -232,6 +240,7 @@ export default function View({ requisition, permissions }: ViewProps) {
                                                 <td className="py-3 px-4 text-right">{item.quantity_fulfilled || '-'}</td>
                                             )}
                                             <td className="py-3 px-4">{item.product?.unit}</td>
+                                            <td className="py-3 px-4 text-right">{item.estimated_price ? `${parseFloat(item.estimated_price).toFixed(2)}` : '-'}</td>
                                             <td className="py-3 px-4 text-muted-foreground text-sm">{item.notes || '-'}</td>
                                         </tr>
                                     ))}
