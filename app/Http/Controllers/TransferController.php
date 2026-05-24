@@ -18,7 +18,7 @@ class TransferController extends Controller
     {
         if(Auth::user()->can('manage-transfers')){
             $transfers = Transfer::query()
-                ->with(['fromWarehouse:id,name', 'toWarehouse:id,name', 'product:id,name,sku'])
+                ->with(['fromWarehouse:id,name', 'toWarehouse:id,name', 'product:id,name,sku,unit', 'product.unitRelation:id,unit_name'])
                 ->where(function($q) {
                     if(Auth::user()->can('manage-any-transfers')) {
                         $q->where('created_by', creatorId());
@@ -165,7 +165,7 @@ class TransferController extends Controller
     {
         if(Auth::user()->can('manage-transfers')){
             $transfers = Transfer::query()
-                ->with(['fromWarehouse:id,name', 'toWarehouse:id,name', 'product:id,name,sku'])
+                ->with(['fromWarehouse:id,name', 'toWarehouse:id,name', 'product:id,name,sku,unit', 'product.unitRelation:id,unit_name'])
                 ->where(function($q) {
                     if(Auth::user()->can('manage-any-transfers')) {
                         $q->where('created_by', creatorId());
@@ -207,10 +207,15 @@ class TransferController extends Controller
                     __('From Warehouse'),
                     __('To Warehouse'),
                     __('Quantity'),
+                    __('Unit'),
                 ]);
 
                 // Add data
                 foreach ($transfers as $transfer) {
+                    $unit = $transfer->product && $transfer->product->unitRelation 
+                        ? $transfer->product->unitRelation->unit_name 
+                        : 'N/A';
+                    
                     fputcsv($file, [
                         $transfer->date->format('Y-m-d'),
                         $transfer->product ? $transfer->product->name : 'N/A',
@@ -218,6 +223,7 @@ class TransferController extends Controller
                         $transfer->fromWarehouse ? $transfer->fromWarehouse->name : 'N/A',
                         $transfer->toWarehouse ? $transfer->toWarehouse->name : 'N/A',
                         $transfer->quantity,
+                        $unit,
                     ]);
                 }
 

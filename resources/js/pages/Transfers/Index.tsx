@@ -131,7 +131,10 @@ export default function Index() {
             key: 'quantity',
             header: t('Quantity'),
             sortable: true,
-            render: (value: number) => Math.floor(value) || 0
+            render: (value: number, transfer: TransferType) => {
+                const unit = transfer.product?.unit_relation?.unit_name || '';
+                return `${Math.floor(value) || 0} ${unit}`.trim();
+            }
         },
         {
             key: 'date',

@@ -14,6 +14,11 @@ export interface Transfer {
         id: number;
         name: string;
         sku: string;
+        unit?: number;
+        unit_relation?: {
+            id: number;
+            unit_name: string;
+        };
     };
     quantity: string;
     date: string;
