@@ -98,7 +98,7 @@ export default function Report() {
                 </div>
             )}
 
-            <div className="report-container bg-white max-w-7xl mx-auto p-8">
+            <div className="report-container bg-white max-w-7xl mx-auto p-4">
                 <div className="text-center mb-8">
                     {logoUrl && (
                         <img src={getImagePath(logoUrl)} alt="Logo" className="mx-auto mb-4" style={{ height: '80px', width: 'auto', objectFit: 'contain' }} />
@@ -123,20 +123,34 @@ export default function Report() {
                     )}
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300">
+                <div style={{ fontSize: '11px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                        <colgroup>
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '9%' }} />
+                            <col style={{ width: '9%' }} />
+                            <col style={{ width: '5%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '8%' }} />
+                        </colgroup>
                         <thead>
-                            <tr className="bg-gray-100">
-                                <th className="border border-gray-300 px-4 py-2 text-left">{t('Booking #')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-left">{t('Customer')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-left">{t('Room')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-left">{t('Check-in')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-left">{t('Check-out')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-center">{t('Nights')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-right">{t('Total')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-right">{t('Paid')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-right">{t('Balance')}</th>
-                                <th className="border border-gray-300 px-4 py-2 text-center">{t('Status')}</th>
+                            <tr style={{ backgroundColor: '#f3f4f6' }}>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Booking #')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Customer')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Room')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Check-in')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Check-out')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'center' }}>{t('Nights')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right' }}>{t('Total')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right' }}>{t('Paid')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right' }}>{t('Balance')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'left' }}>{t('Pay. Method')}</th>
+                                <th style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'center' }}>{t('Status')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -146,37 +160,41 @@ export default function Report() {
                                 
                                 return (
                                     <tr key={booking.id}>
-                                        <td className="border border-gray-300 px-4 py-2">{booking.booking_number}</td>
-                                        <td className="border border-gray-300 px-4 py-2">
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{booking.booking_number}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {booking.customer?.name || t('Walk-in')}
-                                            {booking.includes_breakfast && (
-                                                <span className="text-xs text-orange-600 ml-1">🍳</span>
-                                            )}
+                                            {booking.includes_breakfast && <span style={{ color: '#ea580c', marginLeft: '2px' }}>🍳</span>}
                                         </td>
-                                        <td className="border border-gray-300 px-4 py-2">
-                                            {t('Room')} {booking.room.room_number}
-                                            <div className="text-xs text-gray-500">{booking.room.room_type.name}</div>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px' }}>
+                                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('Room')} {booking.room.room_number}</div>
+                                            <div style={{ fontSize: '10px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{booking.room.room_type.name}</div>
                                         </td>
-                                        <td className="border border-gray-300 px-4 py-2">{formatDate(booking.check_in_date)}</td>
-                                        <td className="border border-gray-300 px-4 py-2">{formatDate(booking.check_out_date)}</td>
-                                        <td className="border border-gray-300 px-4 py-2 text-center">{booking.total_nights}</td>
-                                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(booking.total_amount)}</td>
-                                        <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(paidAmount)}</td>
-                                        <td className="border border-gray-300 px-4 py-2 text-right">
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', whiteSpace: 'nowrap' }}>{formatDate(booking.check_in_date)}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', whiteSpace: 'nowrap' }}>{formatDate(booking.check_out_date)}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textAlign: 'center' }}>{booking.total_nights}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(booking.total_amount)}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(paidAmount)}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                             {balance > 0 ? formatCurrency(balance) : '-'}
                                         </td>
-                                        <td className="border border-gray-300 px-4 py-2 text-center capitalize">{booking.status}</td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {booking.payment?.payment_method
+                                                ? booking.payment.payment_method.replace(/_/g, ' ')
+                                                : '-'}
+                                        </td>
+                                        <td style={{ border: '1px solid #d1d5db', padding: '5px 4px', textAlign: 'center', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{booking.status}</td>
                                     </tr>
                                 );
                             })}
                         </tbody>
                         <tfoot>
-                            <tr className="bg-gray-100 font-bold">
-                                <td colSpan={6} className="border border-gray-300 px-4 py-2 text-right">{t('Total')}:</td>
-                                <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totals.total_amount)}</td>
-                                <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totals.total_paid)}</td>
-                                <td className="border border-gray-300 px-4 py-2 text-right">{formatCurrency(totals.total_balance)}</td>
-                                <td className="border border-gray-300 px-4 py-2"></td>
+                            <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
+                                <td colSpan={6} style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right' }}>{t('Total')}:</td>
+                                <td style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(totals.total_amount)}</td>
+                                <td style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(totals.total_paid)}</td>
+                                <td style={{ border: '1px solid #d1d5db', padding: '6px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(totals.total_balance)}</td>
+                                <td style={{ border: '1px solid #d1d5db', padding: '6px 4px' }}></td>
+                                <td style={{ border: '1px solid #d1d5db', padding: '6px 4px' }}></td>
                             </tr>
                         </tfoot>
                     </table>

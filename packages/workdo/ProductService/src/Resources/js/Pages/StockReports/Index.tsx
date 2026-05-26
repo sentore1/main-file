@@ -56,13 +56,19 @@ export default function Index() {
         {
             key: 'report_type',
             header: t('Type'),
-            render: (value: string) => (
-                <span className={`px-2 py-1 rounded-full text-sm capitalize ${
-                    value === 'opening' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
-                }`}>
-                    {t(value === 'opening' ? 'Opening Stock' : 'Closing Stock')}
-                </span>
-            )
+            render: (value: string) => {
+                const typeConfig = {
+                    opening: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Opening Stock' },
+                    received: { bg: 'bg-green-100', text: 'text-green-800', label: 'Received Stock' },
+                    closing: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Closing Stock' }
+                };
+                const config = typeConfig[value as keyof typeof typeConfig] || typeConfig.closing;
+                return (
+                    <span className={`px-2 py-1 rounded-full text-sm capitalize ${config.bg} ${config.text}`}>
+                        {t(config.label)}
+                    </span>
+                );
+            }
         },
         {
             key: 'items_count',
@@ -195,6 +201,7 @@ export default function Index() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="opening">{t('Opening Stock')}</SelectItem>
+                                            <SelectItem value="received">{t('Received Stock')}</SelectItem>
                                             <SelectItem value="closing">{t('Closing Stock')}</SelectItem>
                                         </SelectContent>
                                     </Select>

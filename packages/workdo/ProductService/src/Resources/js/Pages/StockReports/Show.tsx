@@ -20,7 +20,7 @@ export default function Show() {
                 { label: t('Stock Reports'), href: route('product-service.stock-reports.index') },
                 { label: t('View Report') }
             ]}
-            pageTitle={`${t(reportData.type === 'opening' ? 'Opening Stock' : 'Closing Stock')} - ${new Date(reportData.date).toLocaleDateString()}`}
+            pageTitle={`${t(reportData.type === 'opening' ? 'Opening Stock' : reportData.type === 'received' ? 'Received Stock' : 'Closing Stock')} - ${new Date(reportData.date).toLocaleDateString()}`}
             pageActions={
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => router.visit(route('product-service.stock-reports.index'))}>
@@ -44,9 +44,11 @@ export default function Show() {
                             <p className="text-sm text-gray-600">{t('Date')}: {new Date(reportData.date).toLocaleDateString()}</p>
                             <p className="text-sm">
                                 <span className={`px-2 py-1 rounded-full text-sm capitalize ${
-                                    reportData.type === 'opening' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                                    reportData.type === 'opening' ? 'bg-blue-100 text-blue-800' : 
+                                    reportData.type === 'received' ? 'bg-green-100 text-green-800' : 
+                                    'bg-orange-100 text-orange-800'
                                 }`}>
-                                    {t(reportData.type === 'opening' ? 'Opening Stock' : 'Closing Stock')}
+                                    {t(reportData.type === 'opening' ? 'Opening Stock' : reportData.type === 'received' ? 'Received Stock' : 'Closing Stock')}
                                 </span>
                             </p>
                         </div>

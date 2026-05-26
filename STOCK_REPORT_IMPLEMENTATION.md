@@ -36,11 +36,33 @@ Closing Stock = Opening Stock + Received Stock - Issued/Sold Stock
 
 ### 3. Frontend Components
 
+#### Updated Index Page
+**File**: `packages/workdo/ProductService/src/Resources/js/Pages/StockReports/Index.tsx`
+
+- Added "Received Stock" to the report type filter dropdown
+- Updated report type badge rendering with three colors:
+  - **Opening Stock**: Blue badge
+  - **Received Stock**: Green badge
+  - **Closing Stock**: Orange badge
+- Users can now filter and view all three types of reports
+
 #### Updated Create Form
 **File**: `packages/workdo/ProductService/src/Resources/js/Pages/StockReports/Create.tsx`
 
 - Added "Received Stock" option to report type dropdown
 - Users can now record stock received during the day
+
+#### Updated Show Page
+**File**: `packages/workdo/ProductService/src/Resources/js/Pages/StockReports/Show.tsx`
+
+- Added support for displaying "Received Stock" reports
+- Updated page title and badge to show correct type with green color for received
+
+#### Updated Print Page
+**File**: `packages/workdo/ProductService/src/Resources/js/Pages/StockReports/Print.tsx`
+
+- Added support for printing "Received Stock" reports
+- Updated report title to show correct type
 
 #### New Comprehensive Report View
 **File**: `packages/workdo/ProductService/src/Resources/js/Pages/StockReports/Comprehensive.tsx`
@@ -75,17 +97,33 @@ Route::get('/comprehensive', [StockReportController::class, 'comprehensive'])
    - Create report with type "Opening Stock"
    - Record quantities at start of day
    - Select warehouse (optional)
+   - Report appears in index with **blue badge**
 
 2. **During Day - Received Stock**
    - When stock arrives (purchases, transfers, returns)
    - Create report with type "Received Stock"
    - Record received quantities
    - Can create multiple "received" reports throughout the day
+   - Each report appears in index with **green badge**
 
 3. **Evening - Closing Stock**
    - Create report with type "Closing Stock"
    - Record actual quantities at end of day
    - System calculates issued/sold automatically
+   - Report appears in index with **orange badge**
+
+### Viewing Individual Reports
+
+1. Navigate to Stock Reports index page
+2. See all reports listed with color-coded badges:
+   - **Blue**: Opening Stock
+   - **Green**: Received Stock
+   - **Orange**: Closing Stock
+3. Filter by:
+   - Date
+   - Report Type (Opening/Received/Closing)
+   - Warehouse
+4. Click "View" or "Print" to see report details
 
 ### Viewing Comprehensive Reports
 

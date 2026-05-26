@@ -718,7 +718,11 @@ function CreateContent({ customers, warehouses, roomTypes }: CreateProps) {
                                                 <SelectContent>
                                                     <SelectItem value="cash">{t('Cash')}</SelectItem>
                                                     <SelectItem value="card">{t('Card')}</SelectItem>
+                                                    <SelectItem value="mtn_momo">{t('MTN Mobile Money')}</SelectItem>
+                                                    <SelectItem value="airtel_money">{t('Airtel Money')}</SelectItem>
+                                                    <SelectItem value="bank">{t('Bank')}</SelectItem>
                                                     <SelectItem value="bank_transfer">{t('Bank Transfer')}</SelectItem>
+                                                    <SelectItem value="check">{t('Check')}</SelectItem>
                                                     <SelectItem value="mobile_money">{t('Mobile Money')}</SelectItem>
                                                 </SelectContent>
                                             </Select>

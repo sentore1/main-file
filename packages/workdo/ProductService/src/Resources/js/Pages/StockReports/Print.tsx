@@ -36,7 +36,7 @@ export default function Print() {
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold mb-2">{t('Stock Report')}</h1>
                     <p className="text-lg">
-                        {t(type === 'opening' ? 'Opening Stock Report' : 'Closing Stock Report')}
+                        {t(type === 'opening' ? 'Opening Stock Report' : type === 'received' ? 'Received Stock Report' : 'Closing Stock Report')}
                     </p>
                     <p className="text-gray-600">{t('Date')}: {new Date(date).toLocaleDateString()}</p>
                 </div>

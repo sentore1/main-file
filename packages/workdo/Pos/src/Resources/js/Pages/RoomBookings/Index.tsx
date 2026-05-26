@@ -274,6 +274,7 @@ function IndexContent({ bookings, warehouses, lateCheckouts, summary }: IndexPro
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Total')}</th>
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Paid')}</th>
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Balance')}</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('Payment Method')}</th>
                                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('Status')}</th>
                                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('Actions')}</th>
                                         </tr>
@@ -325,6 +326,12 @@ function IndexContent({ bookings, warehouses, lateCheckouts, summary }: IndexPro
                                                             <span className="text-gray-400">-</span>
                                                         );
                                                     })()}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                    {booking.payment?.payment_method
+                                                        ? <span className="capitalize">{booking.payment.payment_method.replace(/_/g, ' ')}</span>
+                                                        : <span className="text-gray-400">-</span>
+                                                    }
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <Badge variant={getStatusBadge(booking.status)}>
