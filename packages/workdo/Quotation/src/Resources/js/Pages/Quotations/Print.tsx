@@ -145,12 +145,30 @@ export default function Print() {
                             </tr>
                         </thead>
                         <tbody>
-                            {quotation.items?.map((item, index) => (
+                            {quotation.items?.map((item, index) => {
+                                // Determine the display name based on item type
+                                let displayName = '';
+                                let displaySku = '';
+                                
+                                if (item.item_type === 'room' && item.room) {
+                                    displayName = `Room ${item.room.room_number}${item.room.room_type ? ' - ' + item.room.room_type.name : ''}`;
+                                    displaySku = `ROOM-${item.room.room_number}`;
+                                } else if (item.product) {
+                                    displayName = item.product.name;
+                                    displaySku = item.product.sku || '';
+                                }
+                                
+                                return (
                                 <tr key={index} className="page-break-inside-avoid">
                                     <td className="py-4">
-                                        <div className="font-semibold">{item.product?.name}</div>
-                                        {item.product?.sku && (
-                                            <div className="text-xs text-gray-500">{t('SKU')}: {item.product.sku}</div>
+                                        <div className="font-semibold">{displayName}</div>
+                                        {displaySku && (
+                                            <div className="text-xs text-gray-500">{t('SKU')}: {displaySku}</div>
+                                        )}
+                                        {item.item_type && (
+                                            <div className="text-xs text-gray-600 mt-0.5">
+                                                ({item.item_type === 'room' ? t('Room') : item.item_type === 'service' ? t('Service') : t('Product')})
+                                            </div>
                                         )}
                                     </td>
                                     <td className="text-center py-4">{item.quantity}</td>
@@ -184,7 +202,8 @@ export default function Print() {
                                     </td>
                                     <td className="text-right py-4 font-semibold">{formatCurrency(item.total_amount)}</td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

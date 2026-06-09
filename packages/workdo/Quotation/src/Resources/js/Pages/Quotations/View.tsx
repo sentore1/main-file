@@ -195,15 +195,33 @@ export default function View() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {quotation.items?.map((item, index) => (
+                                    {quotation.items?.map((item, index) => {
+                                        // Determine the display name based on item type
+                                        let displayName = '';
+                                        let displaySku = '';
+                                        
+                                        if (item.item_type === 'room' && item.room) {
+                                            displayName = `Room ${item.room.room_number}${item.room.room_type ? ' - ' + item.room.room_type.name : ''}`;
+                                            displaySku = `ROOM-${item.room.room_number}`;
+                                        } else if (item.product) {
+                                            displayName = item.product.name;
+                                            displaySku = item.product.sku || '';
+                                        }
+                                        
+                                        return (
                                         <tr key={index}>
                                             <td className="px-4 py-4">
-                                                <div className="font-medium">{item.product?.name}</div>
-                                                {item.product?.sku && (
-                                                    <div className="text-sm text-muted-foreground">SKU: {item.product.sku}</div>
+                                                <div className="font-medium">{displayName}</div>
+                                                {displaySku && (
+                                                    <div className="text-sm text-muted-foreground">SKU: {displaySku}</div>
                                                 )}
-                                                {item.product?.description && (
+                                                {item.product?.description && item.item_type !== 'room' && (
                                                     <div className="text-sm text-muted-foreground mt-1">{item.product.description}</div>
+                                                )}
+                                                {item.item_type && (
+                                                    <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                                        {item.item_type === 'room' ? t('Room') : item.item_type === 'service' ? t('Service') : t('Product')}
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="px-4 py-4 text-right">{item.quantity}</td>
@@ -241,7 +259,8 @@ export default function View() {
                                                 {formatCurrency(item.total_amount)}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

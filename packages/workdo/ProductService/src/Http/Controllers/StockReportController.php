@@ -35,11 +35,23 @@ class StockReportController extends Controller
                         ->where('report_type', $report->report_type)
                         ->sum('quantity');
                     
+                    // Calculate total value dynamically from product prices
+                    $reportsWithProducts = StockReport::with('product')
+                        ->where('created_by', creatorId())
+                        ->where('report_date', $report->report_date)
+                        ->where('report_type', $report->report_type)
+                        ->get();
+                    
+                    $totalValue = $reportsWithProducts->sum(function($item) {
+                        return $item->quantity * ($item->product->purchase_price ?? 0);
+                    });
+                    
                     return [
                         'date' => $report->report_date->format('Y-m-d'),
                         'type' => $report->report_type,
                         'items_count' => $itemsCount,
                         'total_quantity' => $totalQty,
+                        'total_value' => $totalValue,
                         'view_url' => route('product-service.stock-reports.show', [
                             'date' => $report->report_date->format('Y-m-d'),
                             'type' => $report->report_type
@@ -109,6 +121,24 @@ class StockReportController extends Controller
                     })
                     ->sum('quantity');
                 
+                // Calculate total value dynamically from product prices
+                $reportsWithProducts = StockReport::with('product')
+                    ->where('created_by', creatorId())
+                    ->whereDate('report_date', $report->report_date)
+                    ->where('report_type', $report->report_type)
+                    ->where(function($q) use ($report) {
+                        if ($report->warehouse_id) {
+                            $q->where('warehouse_id', $report->warehouse_id);
+                        } else {
+                            $q->whereNull('warehouse_id');
+                        }
+                    })
+                    ->get();
+                
+                $totalValue = $reportsWithProducts->sum(function($item) {
+                    return $item->quantity * ($item->product->purchase_price ?? 0);
+                });
+                
                 // Get first report to access relationships
                 $firstReport = StockReport::with(['warehouse', 'recordedBy'])
                     ->where('created_by', creatorId())
@@ -129,6 +159,7 @@ class StockReportController extends Controller
                     'report_type' => $report->report_type,
                     'items_count' => $itemsCount,
                     'total_quantity' => $totalQty,
+                    'total_value' => $totalValue,
                     'warehouse' => $firstReport->warehouse ?? null,
                     'recorded_by' => $firstReport->recordedBy ?? null,
                 ];
@@ -228,14 +259,23 @@ class StockReportController extends Controller
                     return [
                         'name' => $categoryName ?: 'Uncategorized',
                         'items' => $items->map(function ($report) {
+                            $unitValue = $report->product->purchase_price ?? 0;
+                            $totalValue = $report->quantity * $unitValue;
                             return [
                                 'product_name' => $report->product->name,
                                 'sku' => $report->product->sku,
                                 'warehouse' => $report->warehouse?->name,
                                 'quantity' => $report->quantity,
+                                'unit_value' => $unitValue,
+                                'total_value' => $totalValue,
                             ];
                         }),
                         'total_quantity' => $items->sum('quantity'),
+                        'total_value' => $items->sum(function($item) {
+                            return $item->quantity * ($item->product->purchase_price ?? 0);
+                        }),
+                        'total_quantity' => $items->sum('quantity'),
+                        'total_value' => $items->sum('total_value'),
                     ];
                 }),
             ];
@@ -326,10 +366,17 @@ class StockReportController extends Controller
                     ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
                     ->first();
 
-                // Calculate issued/sold (Opening + Received - Closing)
+                // Calculate quantities
                 $opening = $openingStock ? $openingStock->quantity : 0;
                 $closing = $closingStock ? $closingStock->quantity : 0;
                 $issued = $opening + $receivedStock - $closing;
+                
+                // Calculate values using product purchase price
+                $unitPrice = $product->purchase_price ?? 0;
+                $openingValue = $opening * $unitPrice;
+                $receivedValue = $receivedStock * $unitPrice;
+                $closingValue = $closing * $unitPrice;
+                $issuedValue = $issued * $unitPrice;
 
                 $reportData[] = [
                     'product_id' => $product->id,
@@ -337,9 +384,13 @@ class StockReportController extends Controller
                     'sku' => $product->sku,
                     'category' => $product->category?->name ?? 'Uncategorized',
                     'opening_stock' => $opening,
+                    'opening_stock_value' => $openingValue,
                     'received_stock' => $receivedStock,
+                    'received_stock_value' => $receivedValue,
                     'issued_stock' => $issued,
+                    'issued_stock_value' => $issuedValue,
                     'closing_stock' => $closing,
+                    'closing_stock_value' => $closingValue,
                 ];
             }
 

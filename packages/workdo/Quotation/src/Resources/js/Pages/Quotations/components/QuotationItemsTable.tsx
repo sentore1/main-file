@@ -13,11 +13,12 @@ interface Props {
     items: QuotationItem[];
     onChange: (items: QuotationItem[]) => void;
     errors: any;
-    products?: Array<{id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{id: number; tax_name: string; rate: number}>}>;
+    products?: Array<{id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; item_type?: string; taxes?: Array<{id: number; tax_name: string; rate: number}>}>;
     showAddButton?: boolean;
+    quotationType?: 'product' | 'service';
 }
 
-export default function QuotationItemsTable({ items, onChange, errors, products = [], showAddButton = true }: Props) {
+export default function QuotationItemsTable({ items, onChange, errors, products = [], showAddButton = true, quotationType = 'product' }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
@@ -67,7 +68,7 @@ export default function QuotationItemsTable({ items, onChange, errors, products 
         onChange(newItems);
     };
 
-    const handleProductSelect = (index: number, productId: number, product?: any) => {
+    const handleProductSelect = (index: number, productId: number | string, product?: any) => {
         const newItems = [...items];
         const totalTaxRate = product?.taxes?.reduce((sum: number, tax: any) => sum + Number(tax.rate), 0) || 0;
         const taxes = product?.taxes?.map((tax: any) => ({
@@ -80,7 +81,9 @@ export default function QuotationItemsTable({ items, onChange, errors, products 
             product_id: productId,
             unit_price: Number(product?.sale_price) || 0,
             tax_percentage: Number(totalTaxRate) || 0,
-            taxes: taxes
+            taxes: taxes,
+            item_type: product?.item_type || 'product',
+            room_id: product?.room_id || null
         };
 
         const item = newItems[index];

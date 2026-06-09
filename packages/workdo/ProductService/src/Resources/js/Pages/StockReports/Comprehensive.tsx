@@ -28,9 +28,13 @@ interface Product {
     sku: string;
     category: string;
     opening_stock: number;
+    opening_stock_value: number;
     received_stock: number;
+    received_stock_value: number;
     issued_stock: number;
+    issued_stock_value: number;
     closing_stock: number;
+    closing_stock_value: number;
 }
 
 interface Warehouse {
@@ -66,11 +70,15 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
         return products.reduce(
             (acc, product) => ({
                 opening: acc.opening + product.opening_stock,
+                openingValue: acc.openingValue + product.opening_stock_value,
                 received: acc.received + product.received_stock,
+                receivedValue: acc.receivedValue + product.received_stock_value,
                 issued: acc.issued + product.issued_stock,
+                issuedValue: acc.issuedValue + product.issued_stock_value,
                 closing: acc.closing + product.closing_stock,
+                closingValue: acc.closingValue + product.closing_stock_value,
             }),
-            { opening: 0, received: 0, issued: 0, closing: 0 }
+            { opening: 0, openingValue: 0, received: 0, receivedValue: 0, issued: 0, issuedValue: 0, closing: 0, closingValue: 0 }
         );
     };
 
@@ -78,11 +86,15 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
         return Object.values(reportData).flat().reduce(
             (acc, product) => ({
                 opening: acc.opening + product.opening_stock,
+                openingValue: acc.openingValue + product.opening_stock_value,
                 received: acc.received + product.received_stock,
+                receivedValue: acc.receivedValue + product.received_stock_value,
                 issued: acc.issued + product.issued_stock,
+                issuedValue: acc.issuedValue + product.issued_stock_value,
                 closing: acc.closing + product.closing_stock,
+                closingValue: acc.closingValue + product.closing_stock_value,
             }),
-            { opening: 0, received: 0, issued: 0, closing: 0 }
+            { opening: 0, openingValue: 0, received: 0, receivedValue: 0, issued: 0, issuedValue: 0, closing: 0, closingValue: 0 }
         );
     };
 
@@ -167,11 +179,17 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
                             <div className="text-center p-4 bg-blue-50 rounded">
                                 <div className="text-sm text-gray-600">{t('Opening Stock')}</div>
                                 <div className="text-2xl font-bold">{grandTotals.opening.toFixed(2)}</div>
+                                <div className="text-sm font-semibold text-blue-700 mt-1">
+                                    RWF {grandTotals.openingValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
                             </div>
                             <div className="text-center p-4 bg-green-50 rounded">
                                 <div className="text-sm text-gray-600">{t('Received')}</div>
                                 <div className="text-2xl font-bold text-green-600">
                                     +{grandTotals.received.toFixed(2)}
+                                </div>
+                                <div className="text-sm font-semibold text-green-700 mt-1">
+                                    RWF {grandTotals.receivedValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </div>
                             </div>
                             <div className="text-center p-4 bg-red-50 rounded">
@@ -179,10 +197,16 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
                                 <div className="text-2xl font-bold text-red-600">
                                     -{grandTotals.issued.toFixed(2)}
                                 </div>
+                                <div className="text-sm font-semibold text-red-700 mt-1">
+                                    RWF {grandTotals.issuedValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
                             </div>
                             <div className="text-center p-4 bg-purple-50 rounded">
                                 <div className="text-sm text-gray-600">{t('Closing Stock')}</div>
                                 <div className="text-2xl font-bold">{grandTotals.closing.toFixed(2)}</div>
+                                <div className="text-sm font-semibold text-purple-700 mt-1">
+                                    RWF {grandTotals.closingValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -202,10 +226,14 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
                                         <TableRow>
                                             <TableHead>{t('Product')}</TableHead>
                                             <TableHead>{t('SKU')}</TableHead>
-                                            <TableHead className="text-right">{t('Opening')}</TableHead>
-                                            <TableHead className="text-right">{t('Received')}</TableHead>
-                                            <TableHead className="text-right">{t('Issued')}</TableHead>
-                                            <TableHead className="text-right">{t('Closing')}</TableHead>
+                                            <TableHead className="text-right">{t('Opening Qty')}</TableHead>
+                                            <TableHead className="text-right">{t('Opening Value')}</TableHead>
+                                            <TableHead className="text-right">{t('Received Qty')}</TableHead>
+                                            <TableHead className="text-right">{t('Received Value')}</TableHead>
+                                            <TableHead className="text-right">{t('Issued Qty')}</TableHead>
+                                            <TableHead className="text-right">{t('Issued Value')}</TableHead>
+                                            <TableHead className="text-right">{t('Closing Qty')}</TableHead>
+                                            <TableHead className="text-right">{t('Closing Value')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -216,14 +244,26 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
                                                 <TableCell className="text-right">
                                                     {product.opening_stock.toFixed(2)}
                                                 </TableCell>
+                                                <TableCell className="text-right text-gray-600">
+                                                    {product.opening_stock_value.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                                </TableCell>
                                                 <TableCell className="text-right text-green-600">
                                                     {product.received_stock.toFixed(2)}
+                                                </TableCell>
+                                                <TableCell className="text-right text-green-600">
+                                                    {product.received_stock_value.toLocaleString('en-US', {minimumFractionDigits: 2})}
                                                 </TableCell>
                                                 <TableCell className="text-right text-red-600">
                                                     {product.issued_stock.toFixed(2)}
                                                 </TableCell>
+                                                <TableCell className="text-right text-red-600">
+                                                    {product.issued_stock_value.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                                </TableCell>
                                                 <TableCell className="text-right font-semibold">
                                                     {product.closing_stock.toFixed(2)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-semibold">
+                                                    {product.closing_stock_value.toLocaleString('en-US', {minimumFractionDigits: 2})}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -232,14 +272,26 @@ export default function Comprehensive({ reportData, startDate, endDate, warehous
                                             <TableCell className="text-right">
                                                 {categoryTotals.opening.toFixed(2)}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                RWF {categoryTotals.openingValue.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                            </TableCell>
                                             <TableCell className="text-right text-green-600">
                                                 {categoryTotals.received.toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-green-600">
+                                                RWF {categoryTotals.receivedValue.toLocaleString('en-US', {minimumFractionDigits: 2})}
                                             </TableCell>
                                             <TableCell className="text-right text-red-600">
                                                 {categoryTotals.issued.toFixed(2)}
                                             </TableCell>
+                                            <TableCell className="text-right text-red-600">
+                                                RWF {categoryTotals.issuedValue.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 {categoryTotals.closing.toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                RWF {categoryTotals.closingValue.toLocaleString('en-US', {minimumFractionDigits: 2})}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>

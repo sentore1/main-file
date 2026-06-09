@@ -1,0 +1,139 @@
+========================================
+INTRUSION DETECTION EMAIL ALERTS
+Email: abdousentore@gmail.com
+========================================
+
+COPY AND PASTE THIS INTO YOUR SSH:
+-----------------------------------
+
+curl -o /root/install_intrusion.sh https://pastebin.com/raw/XXXXX 2>/dev/null || cat > /root/install_intrusion.sh << 'INSTALLER_EOF'
+#!/bin/bash
+echo "Installing Intrusion Detection Email Alerts..."
+apt-get update -qq && apt-get install -y mailutils postfix -qq
+debconf-set-selections <<< "postfix postfix/mailname string vmi3109658.contaboserver.net"
+debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Internet Site'"
+postconf -e "myhostname = vmi3109658.contaboserver.net"
+postconf -e "inet_interfaces = loopback-only"
+systemctl restart postfix
+systemctl enable postfix
+echo "✅ Mail system ready"
+
+cat > /root/intrusion_alert.sh << 'SCRIPT_EOF'
+#!/bin/bash
+ALERT_EMAIL="abdousentore@gmail.com"
+LOG_FILE="/var/log/intrusion_alerts.log"
+ATTACKER_SSH_KEY="IPCsi58xDKuXuq8CMnlIFQHoqiGkyziMQpAks2t0EBa0"
+
+send_alert() {
+    echo "[$(date)] ALERT: $1" >> "$LOG_FILE"
+    echo "$2" >> "$LOG_FILE"
+    echo "🚨 SECURITY ALERT: $1
+
+Server: vmi3109658.contaboserver.net
+Time: $(date)
+
+$2
+
+Current Status:
+$(uptime)
+
+Active Connections:
+$(who)
+
+Recent Logins:
+$(last -i -n 10 | head -15)
+" | mail -s "🚨 ALERT: $1" "$ALERT_EMAIL"
+}
+
+ALERTS=0
+
+# Check malware
+INFECTED=$(find /home/*/public_html -name "*.php" -exec grep -l "eval(base64_decode" {} \; 2>/dev/null | wc -l)
+[ "$INFECTED" -gt 0 ] && { ALERTS=$((ALERTS+1)); send_alert "Malware Detected ($INFECTED files)" "Found $INFECTED infected PHP files with eval(base64_decode) malware"; }
+
+# Check SSH key
+grep -qr "$ATTACKER_SSH_KEY" /root/.ssh/ /home/*/.ssh/ 2>/dev/null && { ALERTS=$((ALERTS+1)); send_alert "Attacker SSH Key Found" "The known attacker SSH key was detected in authorized_keys files"; }
+
+# Check suspicious processes
+SUSP=$(ps aux | grep -E "defunct|miner|cryptonight" | grep -v grep)
+[ -n "$SUSP" ] && { ALERTS=$((ALERTS+1)); send_alert "Suspicious Processes" "Found: $SUSP"; }
+
+# Check rootkit
+systemctl list-units --all | grep -qE "defunct|gssocket" && { ALERTS=$((ALERTS+1)); send_alert "Rootkit Service Active" "Detected defunct.service or GSSocket rootkit"; }
+
+# Check unauthorized connections
+UNAUTH=$(who | grep -v "41.173.251.217")
+[ -n "$UNAUTH" ] && { ALERTS=$((ALERTS+1)); send_alert "Unauthorized SSH Connection" "Unknown IP connected: $UNAUTH"; }
+
+# Check file modifications (last hour)
+MOD=$(find /home/solaceministries.org/public_html/wp-config.php /home/login.pryro.com/public_html/public/index.php /home/pos.pryro.com/public_html/public/index.php -type f -mmin -60 2>/dev/null)
+[ -n "$MOD" ] && { ALERTS=$((ALERTS+1)); send_alert "Critical Files Modified" "Modified: $MOD"; }
+
+# Check immutable flags
+for file in /home/solaceministries.org/public_html/wp-config.php /home/login.pryro.com/public_html/public/index.php /home/pos.pryro.com/public_html/public/index.php /root/.ssh/authorized_keys; do
+    [ -f "$file" ] && ! lsattr "$file" 2>/dev/null | grep -q "i" && { ALERTS=$((ALERTS+1)); send_alert "Protection Removed" "Immutable flag removed from: $file"; break; }
+done
+
+[ $ALERTS -eq 0 ] && echo "[$(date)] ✅ No threats" >> "$LOG_FILE"
+exit $ALERTS
+SCRIPT_EOF
+
+chmod +x /root/intrusion_alert.sh
+(crontab -l 2>/dev/null | grep -v intrusion_alert; echo "*/15 * * * * /root/intrusion_alert.sh >/dev/null 2>&1") | crontab -
+
+echo "✅ Installation Complete!"
+echo "📧 Test email being sent to abdousentore@gmail.com..."
+echo "Test: Intrusion Detection System is now active on vmi3109658.contaboserver.net
+
+This system monitors for:
+✓ Malware in PHP files
+✓ Attacker's SSH key
+✓ Suspicious processes
+✓ Rootkit services
+✓ Unauthorized connections
+✓ File modifications
+✓ Removed protections
+
+Scans run every 15 minutes.
+
+Manual scan: /root/intrusion_alert.sh
+View log: tail -f /var/log/intrusion_alerts.log
+" | mail -s "✅ Intrusion Detection Active" abdousentore@gmail.com
+
+echo ""
+echo "Configuration:"
+echo "  📧 Email: abdousentore@gmail.com"
+echo "  ⏱️  Frequency: Every 15 minutes"
+echo "  📝 Log: /var/log/intrusion_alerts.log"
+echo ""
+echo "Commands:"
+echo "  Manual scan: /root/intrusion_alert.sh"
+echo "  View log: tail -f /var/log/intrusion_alerts.log"
+echo ""
+echo "📧 Check your email (including spam folder)!"
+INSTALLER_EOF
+
+chmod +x /root/install_intrusion.sh && /root/install_intrusion.sh
+
+-----------------------------------
+
+WHAT THIS DOES:
+✓ Installs mail system (postfix + mailutils)
+✓ Creates intrusion detection script
+✓ Monitors every 15 minutes automatically
+✓ Sends email to abdousentore@gmail.com when:
+  - Malware detected in PHP files
+  - Attacker's SSH key appears
+  - Suspicious processes running
+  - Rootkit services active
+  - Unauthorized SSH connections
+  - Critical files modified
+  - File protections removed
+
+AFTER INSTALLATION:
+- Check your email (and spam folder) for test message
+- Manual scan: /root/intrusion_alert.sh
+- View log: tail -f /var/log/intrusion_alerts.log
+- Check schedule: crontab -l
+
+========================================

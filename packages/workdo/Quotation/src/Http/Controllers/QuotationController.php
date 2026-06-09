@@ -109,7 +109,8 @@ class QuotationController extends Controller
             $quotation->quotation_date  = $request->invoice_date;
             $quotation->due_date        = $request->due_date;
             $quotation->customer_id     = $request->customer_id;
-            $quotation->warehouse_id    = $request->warehouse_id;
+            $quotation->warehouse_id    = $request->type === 'product' ? $request->warehouse_id : null;
+            $quotation->type            = $request->type ?? 'product';
             $quotation->payment_terms   = $request->payment_terms;
             $quotation->notes           = $request->notes;
             $quotation->subtotal        = $totals['subtotal'];
@@ -144,7 +145,7 @@ class QuotationController extends Controller
                 return redirect()->route('quotations.index')->with('error', __('Access denied'));
             }
 
-            $quotation->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse', 'parentQuotation']);
+            $quotation->load(['customer', 'customerDetails', 'items.product', 'items.room.roomType', 'items.taxes', 'warehouse', 'parentQuotation']);
 
             return Inertia::render('Quotation/Quotations/View', [
                 'quotation' => $quotation
@@ -191,7 +192,8 @@ class QuotationController extends Controller
             $quotation->quotation_date  = $request->invoice_date;
             $quotation->due_date        = $request->due_date;
             $quotation->customer_id     = $request->customer_id;
-            $quotation->warehouse_id    = $request->warehouse_id;
+            $quotation->type            = $request->type ?? 'product';
+            $quotation->warehouse_id    = $request->type === 'product' ? $request->warehouse_id : null;
             $quotation->payment_terms   = $request->payment_terms;
             $quotation->notes           = $request->notes;
             $quotation->subtotal        = $totals['subtotal'];
@@ -259,6 +261,8 @@ class QuotationController extends Controller
             $item                      = new SalesQuotationItem();
             $item->quotation_id        = $quotationId;
             $item->product_id          = $itemData['product_id'];
+            $item->item_type           = $itemData['item_type'] ?? 'product';
+            $item->room_id             = $itemData['room_id'] ?? null;
             $item->quantity            = $itemData['quantity'];
             $item->unit_price          = $itemData['unit_price'];
             $item->discount_percentage = $itemData['discount_percentage'] ?? 0;
@@ -329,7 +333,7 @@ class QuotationController extends Controller
     public function print(SalesQuotation $quotation)
     {
         if (Auth::user()->can('print-quotations')) {
-            $quotation->load(['customer', 'customerDetails', 'items.product', 'items.taxes', 'warehouse']);
+            $quotation->load(['customer', 'customerDetails', 'items.product', 'items.room.roomType', 'items.taxes', 'warehouse']);
 
             return Inertia::render('Quotation/Quotations/Print', [
                 'quotation' => $quotation
@@ -505,6 +509,7 @@ class QuotationController extends Controller
 
             $products = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
                 ->where('is_active', true)
+                ->where('type', '!=', 'room') // Exclude rooms - they come from getServices()
                 ->where('created_by', creatorId())
                 ->whereHas('warehouseStocks', function ($q) use ($warehouseId) {
                     $q->where('warehouse_id', $warehouseId)
@@ -534,6 +539,69 @@ class QuotationController extends Controller
                     ];
                 });
             return response()->json($products);
+        } else {
+            return response()->json([], 403);
+        }
+    }
+
+    public function getServices(Request $request)
+    {
+        if (Auth::user()->can('create-quotations') || Auth::user()->can('edit-quotations')) {
+            $warehouseId = $request->get('warehouse_id');
+            
+            // Get services
+            $services = ProductServiceItem::select('id', 'name', 'sku', 'sale_price', 'tax_ids', 'unit', 'type')
+                ->where('is_active', true)
+                ->where('type', 'service')
+                ->where('created_by', creatorId())
+                ->get()
+                ->map(function ($service) {
+                    return [
+                        'id'         => $service->id,
+                        'name'       => $service->name,
+                        'sku'        => $service->sku,
+                        'sale_price' => $service->sale_price,
+                        'unit'       => $service->unit,
+                        'type'       => $service->type,
+                        'item_type'  => 'service',
+                        'taxes'      => $service->taxes->map(function ($tax) {
+                            return [
+                                'id'       => $tax->id,
+                                'tax_name' => $tax->tax_name,
+                                'rate'     => $tax->rate
+                            ];
+                        })
+                    ];
+                });
+            
+            // Get rooms if warehouse is selected
+            $rooms = collect([]);
+            if ($warehouseId && class_exists('\Workdo\Pos\Models\Room')) {
+                $rooms = \Workdo\Pos\Models\Room::with('roomType')
+                    ->where('warehouse_id', $warehouseId)
+                    ->where('created_by', creatorId())
+                    ->where('status', 'available')
+                    ->get()
+                    ->map(function ($room) {
+                        return [
+                            'id'          => $room->id,
+                            'name'        => 'Room ' . $room->room_number . ($room->roomType ? ' - ' . $room->roomType->name : ''),
+                            'sku'         => 'ROOM-' . $room->room_number,
+                            'sale_price'  => $room->price_per_night ?? 0,
+                            'unit'        => 'night',
+                            'type'        => 'room',
+                            'item_type'   => 'room',
+                            'room_id'     => $room->id,
+                            'room_number' => $room->room_number,
+                            'taxes'       => []
+                        ];
+                    });
+            }
+            
+            // Merge services and rooms
+            $allItems = $services->concat($rooms);
+            
+            return response()->json($allItems);
         } else {
             return response()->json([], 403);
         }

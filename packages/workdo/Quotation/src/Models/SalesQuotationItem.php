@@ -15,6 +15,8 @@ class SalesQuotationItem extends Model
     protected $fillable = [
         'quotation_id',
         'product_id',
+        'item_type',
+        'room_id',
         'quantity',
         'unit_price',
         'discount_percentage',
@@ -44,6 +46,11 @@ class SalesQuotationItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(\Workdo\ProductService\Models\ProductServiceItem::class, 'product_id');
+    }
+
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(\Workdo\Pos\Models\Room::class, 'room_id');
     }
 
     public function taxes(): HasMany

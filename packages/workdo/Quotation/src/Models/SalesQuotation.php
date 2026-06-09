@@ -23,6 +23,7 @@ class SalesQuotation extends Model
         'quotation_date',
         'customer_id',
         'warehouse_id',
+        'type',
         'due_date',
         'subtotal',
         'tax_amount',

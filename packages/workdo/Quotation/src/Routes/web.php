@@ -6,6 +6,7 @@ use Workdo\Quotation\Http\Controllers\QuotationController;
 Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:Quotation'])->group(function () {
     // Define specific routes BEFORE resource routes to avoid conflicts
     Route::get('sales-quotations/warehouse/products', [QuotationController::class, 'getWarehouseProducts'])->name('quotations.warehouse.products');
+    Route::get('sales-quotations/services', [QuotationController::class, 'getServices'])->name('quotations.services');
     Route::get('quotations/{quotation}/print', [QuotationController::class, 'print'])->name('quotations.print');
     Route::post('quotations/{quotation}/sent', [QuotationController::class, 'sent'])->name('quotations.sent');
     Route::post('quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');

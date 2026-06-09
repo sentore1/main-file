@@ -21,7 +21,9 @@ class StoreQuotationRequest extends FormRequest
             'payment_terms' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|numeric|min:1',
+            'items.*.product_id' => 'required', // Allow both numeric and string (ROOM_123)
+            'items.*.item_type' => 'nullable|string|in:product,service,room',
+            'items.*.room_id' => 'nullable|numeric',
             'items.*.quantity' => 'required|numeric|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount_percentage' => 'nullable|numeric|min:0|max:100',

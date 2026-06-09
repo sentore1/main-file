@@ -36,7 +36,20 @@ class TransferController extends Controller
                 ->when(request('from_warehouse'), function($q) {
                     $q->where('from_warehouse', request('from_warehouse'));
                 })
-                ->when(request('sort'), fn($q) => $q->orderBy(request('sort'), request('direction', 'asc')), fn($q) => $q->latest())
+                ->when(request('sort'), function($q) {
+                    $sort = request('sort');
+                    $direction = in_array(request('direction'), ['asc', 'desc']) ? request('direction') : 'asc';
+                    $allowed = ['date', 'quantity', 'from_warehouse', 'to_warehouse'];
+                    if ($sort === 'product.name') {
+                        $q->join('product_service_items as product', 'product.id', '=', 'transfers.product_id')
+                          ->orderBy('product.name', $direction)
+                          ->select('transfers.*');
+                    } elseif (in_array($sort, $allowed)) {
+                        $q->orderBy($sort, $direction);
+                    } else {
+                        $q->latest();
+                    }
+                }, fn($q) => $q->latest())
                 ->paginate(request('per_page', 10))
                 ->withQueryString();
 

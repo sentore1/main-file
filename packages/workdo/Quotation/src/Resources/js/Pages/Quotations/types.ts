@@ -7,6 +7,7 @@ export interface Quotation {
     due_date: string;
     customer_id: number;
     warehouse_id?: number;
+    type?: 'product' | 'service';
     subtotal: number;
     tax_amount: number;
     discount_amount: number;
@@ -32,7 +33,7 @@ export interface Quotation {
 export interface QuotationItem {
     id?: number;
     quotation_id?: number;
-    product_id: number;
+    product_id: number | string; // Allow string for rooms (e.g., "ROOM_123")
     quantity: number;
     unit_price: number;
     discount_percentage: number;
@@ -42,6 +43,23 @@ export interface QuotationItem {
     total_amount: number;
     taxes?: Array<{id?: number; tax_name: string; tax_rate: number}>;
     product?: ProductServiceItem;
+    item_type?: 'product' | 'service' | 'room';
+    room_id?: number;
+    room?: Room;
+}
+
+export interface Room {
+    id: number;
+    room_number: string;
+    price_per_night: number;
+    status: string;
+    room_type?: RoomType;
+}
+
+export interface RoomType {
+    id: number;
+    name: string;
+    description?: string;
 }
 
 export interface User {

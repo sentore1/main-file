@@ -68,6 +68,8 @@ export default function Show() {
                                             <th className="px-4 py-2 text-left text-sm font-semibold">{t('SKU')}</th>
                                             <th className="px-4 py-2 text-left text-sm font-semibold">{t('Warehouse')}</th>
                                             <th className="px-4 py-2 text-right text-sm font-semibold">{t('Quantity')}</th>
+                                            <th className="px-4 py-2 text-right text-sm font-semibold">{t('Unit Value')}</th>
+                                            <th className="px-4 py-2 text-right text-sm font-semibold">{t('Total Value')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -77,11 +79,30 @@ export default function Show() {
                                                 <td className="px-4 py-3 text-gray-600">{item.sku}</td>
                                                 <td className="px-4 py-3 text-gray-600">{item.warehouse || t('All')}</td>
                                                 <td className="px-4 py-3 text-right font-medium">{Math.floor(item.quantity)}</td>
+                                                <td className="px-4 py-3 text-right text-gray-600">
+                                                    {new Intl.NumberFormat('en-US', {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                    }).format(item.unit_value || 0)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-medium">
+                                                    {new Intl.NumberFormat('en-US', {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                    }).format(item.total_value || 0)}
+                                                </td>
                                             </tr>
                                         ))}
                                         <tr className="bg-gray-100 font-semibold">
                                             <td colSpan={3} className="px-4 py-3 text-right">{t('Category Total')}:</td>
                                             <td className="px-4 py-3 text-right">{Math.floor(categoryData.total_quantity)}</td>
+                                            <td className="px-4 py-3 text-right"></td>
+                                            <td className="px-4 py-3 text-right">
+                                                RWF {new Intl.NumberFormat('en-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                }).format(categoryData.total_value || 0)}
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -91,9 +112,15 @@ export default function Show() {
 
                     <div className="mt-6 pt-6 border-t-2 border-gray-400">
                         <div className="flex justify-end">
-                            <div className="text-right">
-                                <p className="text-2xl font-bold">
-                                    {t('Grand Total')}: {Math.floor(Object.values(reportData.categories).reduce((sum: number, cat: any) => sum + cat.total_quantity, 0))}
+                            <div className="text-right space-y-2">
+                                <p className="text-xl font-semibold">
+                                    {t('Grand Total Quantity')}: {Math.floor(Object.values(reportData.categories).reduce((sum: number, cat: any) => sum + cat.total_quantity, 0))}
+                                </p>
+                                <p className="text-2xl font-bold text-green-600">
+                                    {t('Grand Total Value')}: RWF {new Intl.NumberFormat('en-US', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    }).format(Object.values(reportData.categories).reduce((sum: number, cat: any) => sum + (cat.total_value || 0), 0))}
                                 </p>
                             </div>
                         </div>

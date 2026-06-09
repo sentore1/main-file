@@ -13,10 +13,15 @@ export default function Print() {
     const groupedCategories = Object.entries(categories).map(([categoryName, items]: [string, any]) => ({
         name: categoryName || 'Uncategorized',
         items: items,
-        total: items.reduce((sum: number, item: any) => sum + parseFloat(item.quantity), 0)
+        total: items.reduce((sum: number, item: any) => sum + parseFloat(item.quantity), 0),
+        totalValue: items.reduce((sum: number, item: any) => {
+            const unitValue = item.product?.purchase_price || 0;
+            return sum + (parseFloat(item.quantity) * unitValue);
+        }, 0)
     }));
 
     const grandTotal = groupedCategories.reduce((sum, cat) => sum + cat.total, 0);
+    const grandTotalValue = groupedCategories.reduce((sum, cat) => sum + cat.totalValue, 0);
 
     return (
         <>
@@ -53,20 +58,36 @@ export default function Print() {
                                     <th className="text-left">{t('SKU')}</th>
                                     <th className="text-left">{t('Warehouse')}</th>
                                     <th className="text-right">{t('Quantity')}</th>
+                                    <th className="text-right">{t('Unit Value')}</th>
+                                    <th className="text-right">{t('Total Value')}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {category.items.map((item: any, index: number) => (
-                                    <tr key={index}>
-                                        <td>{item.product.name}</td>
-                                        <td>{item.product.sku}</td>
-                                        <td>{item.warehouse?.name || t('All')}</td>
-                                        <td className="text-right">{Math.floor(item.quantity)}</td>
-                                    </tr>
-                                ))}
+                                {category.items.map((item: any, index: number) => {
+                                    const unitValue = item.product?.purchase_price || 0;
+                                    const totalValue = parseFloat(item.quantity) * unitValue;
+                                    return (
+                                        <tr key={index}>
+                                            <td>{item.product.name}</td>
+                                            <td>{item.product.sku}</td>
+                                            <td>{item.warehouse?.name || t('All')}</td>
+                                            <td className="text-right">{Math.floor(item.quantity)}</td>
+                                            <td className="text-right">
+                                                {unitValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                            </td>
+                                            <td className="text-right">
+                                                {totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 <tr className="font-semibold bg-gray-100">
                                     <td colSpan={3} className="text-right">{t('Category Total')}:</td>
                                     <td className="text-right">{Math.floor(category.total)}</td>
+                                    <td className="text-right"></td>
+                                    <td className="text-right">
+                                        RWF {category.totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -79,7 +100,10 @@ export default function Print() {
                             <p className="text-sm text-gray-600">{t('Printed on')}: {new Date().toLocaleString()}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-2xl font-bold">{t('Grand Total')}: {Math.floor(grandTotal)}</p>
+                            <p className="text-xl font-semibold">{t('Grand Total Quantity')}: {Math.floor(grandTotal)}</p>
+                            <p className="text-2xl font-bold text-green-700">
+                                {t('Grand Total Value')}: RWF {grandTotalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </p>
                         </div>
                     </div>
                 </div>

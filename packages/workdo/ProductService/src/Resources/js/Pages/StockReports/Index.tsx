@@ -81,6 +81,17 @@ export default function Index() {
             render: (value: number) => Math.floor(value) || 0
         },
         {
+            key: 'total_value',
+            header: t('Total Value'),
+            render: (value: number) => {
+                const formattedValue = new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(value || 0);
+                return `RWF ${formattedValue}`;
+            }
+        },
+        {
             key: 'warehouse',
             header: t('Warehouse'),
             render: (value: any) => value?.name || t('All Warehouses')

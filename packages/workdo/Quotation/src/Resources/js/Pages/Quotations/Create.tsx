@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { QuotationItem } from './types';
@@ -27,15 +27,16 @@ export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses } = usePage<CreateProps>().props;
     const [availableProducts, setAvailableProducts] = useState([]);
+    const [availableServices, setAvailableServices] = useState([]);
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, errors } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
         due_date: '',
         customer_id: '',
         warehouse_id: '',
         payment_terms: '',
         notes: '',
-        items: [{
+        product_items: [{
             product_id: 0,
             quantity: 1,
             unit_price: 0,
@@ -43,7 +44,19 @@ export default function Create() {
             discount_amount: 0,
             tax_percentage: 0,
             tax_amount: 0,
-            total_amount: 0
+            total_amount: 0,
+            item_type: 'product'
+        }] as QuotationItem[],
+        service_items: [{
+            product_id: 0,
+            quantity: 1,
+            unit_price: 0,
+            discount_percentage: 0,
+            discount_amount: 0,
+            tax_percentage: 0,
+            tax_amount: 0,
+            total_amount: 0,
+            item_type: 'service'
         }] as QuotationItem[]
     });
 
@@ -52,27 +65,41 @@ export default function Create() {
 
         if (warehouseId) {
             try {
-                const response = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
-                let text = await response.text();
-                
-                // Remove any script tags injected by proxies/extensions
-                text = text.replace(/<script[^>]*>.*?<\/script>/gi, '');
-                const jsonStart = text.indexOf('[');
-                if (jsonStart !== -1) {
-                    text = text.substring(jsonStart);
+                // Fetch products
+                const productsResponse = await fetch(route('quotations.warehouse.products') + `?warehouse_id=${warehouseId}`);
+                let productsText = await productsResponse.text();
+                productsText = productsText.replace(/<script[^>]*>.*?<\/script>/gi, '');
+                const productsJsonStart = productsText.indexOf('[');
+                if (productsJsonStart !== -1) {
+                    productsText = productsText.substring(productsJsonStart);
                 }
-                
-                const warehouseProducts = JSON.parse(text);
+                const warehouseProducts = JSON.parse(productsText);
                 setAvailableProducts(warehouseProducts);
+                console.log('Loaded products:', warehouseProducts.length);
+
+                // Fetch services and rooms
+                const servicesResponse = await fetch(route('quotations.services') + `?warehouse_id=${warehouseId}`);
+                let servicesText = await servicesResponse.text();
+                servicesText = servicesText.replace(/<script[^>]*>.*?<\/script>/gi, '');
+                const servicesJsonStart = servicesText.indexOf('[');
+                if (servicesJsonStart !== -1) {
+                    servicesText = servicesText.substring(servicesJsonStart);
+                }
+                const warehouseServices = JSON.parse(servicesText);
+                setAvailableServices(warehouseServices);
+                console.log('Loaded services:', warehouseServices.length);
             } catch (error) {
-                console.error('Failed to fetch warehouse products:', error);
+                console.error('Failed to fetch warehouse items:', error);
                 setAvailableProducts([]);
+                setAvailableServices([]);
             }
         } else {
             setAvailableProducts([]);
+            setAvailableServices([]);
         }
 
-        setData('items', [{
+        // Reset items when warehouse changes
+        setData('product_items', [{
             product_id: 0,
             quantity: 1,
             unit_price: 0,
@@ -80,18 +107,61 @@ export default function Create() {
             discount_amount: 0,
             tax_percentage: 0,
             tax_amount: 0,
-            total_amount: 0
+            total_amount: 0,
+            item_type: 'product'
+        }]);
+        setData('service_items', [{
+            product_id: 0,
+            quantity: 1,
+            unit_price: 0,
+            discount_percentage: 0,
+            discount_amount: 0,
+            tax_percentage: 0,
+            tax_amount: 0,
+            total_amount: 0,
+            item_type: 'service'
         }]);
     };
 
 
 
+    const [processing, setProcessing] = useState(false);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(route('quotations.store'));
+        
+        // Combine both product and service items
+        const allItems = [...data.product_items, ...data.service_items];
+        
+        setProcessing(true);
+        
+        // Use router.post to send custom data
+        router.post(route('quotations.store'), {
+            invoice_date: data.invoice_date,
+            due_date: data.due_date,
+            customer_id: data.customer_id,
+            warehouse_id: data.warehouse_id,
+            payment_terms: data.payment_terms,
+            notes: data.notes,
+            items: allItems
+        }, {
+            onFinish: () => setProcessing(false),
+            onError: (errors) => {
+                console.error('Validation errors:', errors);
+                setProcessing(false);
+            }
+        });
     };
 
-    const totals = useTaxCalculator(data.items);
+    // Calculate totals for both product and service items
+    const productTotals = useTaxCalculator(data.product_items);
+    const serviceTotals = useTaxCalculator(data.service_items);
+    const totals = {
+        subtotal: productTotals.subtotal + serviceTotals.subtotal,
+        discountAmount: productTotals.discountAmount + serviceTotals.discountAmount,
+        taxAmount: productTotals.taxAmount + serviceTotals.taxAmount,
+        total: productTotals.total + serviceTotals.total
+    };
 
     return (
         <AuthenticatedLayout
@@ -208,12 +278,13 @@ export default function Create() {
                         </CardContent>
                     </Card>
 
+                    {/* Product Items Table */}
                     <Card>
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2 text-lg">
                                     <Package className="h-5 w-5" />
-                                    {t('Quotation Items')}
+                                    {t('Product Items')}
                                 </CardTitle>
                                 <Button
                                     type="button"
@@ -226,23 +297,66 @@ export default function Create() {
                                             discount_amount: 0,
                                             tax_percentage: 0,
                                             tax_amount: 0,
-                                            total_amount: 0
+                                            total_amount: 0,
+                                            item_type: 'product'
                                         };
-                                        setData('items', [...data.items, newItem]);
+                                        setData('product_items', [...data.product_items, newItem]);
                                     }}
                                     variant="default"
                                     size="sm"
                                 >
-                                    + {t('Add Item')}
+                                    + {t('Add Product')}
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <QuotationItemsTable
-                                items={data.items}
-                                onChange={(items) => setData('items', items)}
+                                items={data.product_items}
+                                onChange={(items) => setData('product_items', items)}
                                 errors={errors}
                                 products={availableProducts}
+                                showAddButton={false}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Service Items Table */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Package className="h-5 w-5" />
+                                    {t('Service & Room Items')}
+                                </CardTitle>
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        const newItem = {
+                                            product_id: 0,
+                                            quantity: 1,
+                                            unit_price: 0,
+                                            discount_percentage: 0,
+                                            discount_amount: 0,
+                                            tax_percentage: 0,
+                                            tax_amount: 0,
+                                            total_amount: 0,
+                                            item_type: 'service'
+                                        };
+                                        setData('service_items', [...data.service_items, newItem]);
+                                    }}
+                                    variant="default"
+                                    size="sm"
+                                >
+                                    + {t('Add Service/Room')}
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <QuotationItemsTable
+                                items={data.service_items}
+                                onChange={(items) => setData('service_items', items)}
+                                errors={errors}
+                                products={availableServices}
                                 showAddButton={false}
                             />
 
@@ -275,7 +389,8 @@ export default function Create() {
 
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-muted-foreground">
-                            {data.items.length} {t('items added')}
+                            {data.product_items.length + data.service_items.length} {t('items added')} 
+                            ({data.product_items.length} {t('products')}, {data.service_items.length} {t('services/rooms')})
                         </div>
                         <div className="flex gap-3">
                             <Button
@@ -287,7 +402,7 @@ export default function Create() {
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={processing || data.items.length === 0}
+                                disabled={processing || (data.product_items.length === 0 && data.service_items.length === 0)}
                             >
                                 {processing ? t('Creating...') : t('Create')}
                             </Button>
