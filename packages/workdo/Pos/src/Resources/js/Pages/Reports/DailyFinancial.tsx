@@ -413,9 +413,10 @@ export default function DailyFinancial() {
                                             <td className="px-3 py-1"></td>
                                             <td className="px-3 py-1 pl-6">
                                                 {method === 'cash' && 'CASH'}
-                                                {method === 'momo' && 'MOMO (Mobile Money)'}
-                                                {method === 'pos_bank' && 'POS CARD'}
-                                                {method === 'visacard' && 'VISACARD'}
+                                                {method === 'momo' && 'MOBILE MONEY (MTN/Airtel)'}
+                                                {method === 'pos_bank' && 'CARD PAYMENT'}
+                                                {method === 'bank_transfer' && 'BANK TRANSFER'}
+                                                {method === 'check' && 'CHECK'}
                                                 {method === 'credit' && 'ROOM CHARGES (Credit)'}
                                             </td>
                                             <td className="px-3 py-1 text-right text-xs">

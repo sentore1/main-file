@@ -412,10 +412,15 @@ class PosReportController extends Controller
                     'count' => 0,
                     'percentage' => $totalSales > 0 ? ($totalPos / $totalSales * 100) : 0
                 ],
-                'visacard' => [
-                    'amount' => $totalVisacard,
+                'bank_transfer' => [
+                    'amount' => 0,
                     'count' => 0,
-                    'percentage' => $totalSales > 0 ? ($totalVisacard / $totalSales * 100) : 0
+                    'percentage' => 0
+                ],
+                'check' => [
+                    'amount' => 0,
+                    'count' => 0,
+                    'percentage' => 0
                 ],
                 'credit' => [
                     'amount' => $totalCredit,
@@ -424,29 +429,55 @@ class PosReportController extends Controller
                 ],
             ];
             
-            // Count transactions per payment method
+            // Calculate amounts for new categories
+            $totalBankTransfer = 0;
+            $totalCheck = 0;
+            
+            foreach ($salesByDepartment as $dept => $data) {
+                $totalBankTransfer += $data['bank_transfer'] ?? 0;
+                $totalCheck += $data['check'] ?? 0;
+            }
+            
+            $paymentMethodSummary['bank_transfer']['amount'] = $totalBankTransfer;
+            $paymentMethodSummary['bank_transfer']['percentage'] = $totalSales > 0 ? ($totalBankTransfer / $totalSales * 100) : 0;
+            
+            $paymentMethodSummary['check']['amount'] = $totalCheck;
+            $paymentMethodSummary['check']['percentage'] = $totalSales > 0 ? ($totalCheck / $totalSales * 100) : 0;
+            
+            // Count transactions per payment method using actual payment_method field
             $allSales = (clone $baseQuery)->with('payment')->get();
             foreach ($allSales as $sale) {
-                if ($sale->charged_to_room) {
-                    $paymentMethodSummary['credit']['count']++;
-                } elseif ($sale->bank_account_id) {
-                    $bankAccount = \Workdo\Account\Models\BankAccount::find($sale->bank_account_id);
-                    if ($bankAccount) {
-                        $accountName = strtolower($bankAccount->account_name);
-                        if (str_contains($accountName, 'momo') || str_contains($accountName, 'mobile')) {
-                            $paymentMethodSummary['momo']['count']++;
-                        } elseif (str_contains($accountName, 'pos') || str_contains($accountName, 'card')) {
-                            $paymentMethodSummary['pos_bank']['count']++;
-                        } elseif (str_contains($accountName, 'visa')) {
-                            $paymentMethodSummary['visacard']['count']++;
-                        } else {
+                if ($sale->payment) {
+                    $paymentMethod = $sale->payment->payment_method ?? 'cash';
+                    
+                    switch ($paymentMethod) {
+                        case 'cash':
                             $paymentMethodSummary['cash']['count']++;
-                        }
-                    } else {
-                        $paymentMethodSummary['cash']['count']++;
+                            break;
+                        case 'card':
+                            $paymentMethodSummary['pos_bank']['count']++;
+                            break;
+                        case 'mtn_momo':
+                        case 'airtel_money':
+                            $paymentMethodSummary['momo']['count']++;
+                            break;
+                        case 'bank':
+                            $paymentMethodSummary['bank_transfer']['count']++;
+                            break;
+                        case 'check':
+                            $paymentMethodSummary['check']['count']++;
+                            break;
+                        case 'charge_to_room':
+                            $paymentMethodSummary['credit']['count']++;
+                            break;
+                        default:
+                            if ($sale->charged_to_room) {
+                                $paymentMethodSummary['credit']['count']++;
+                            } else {
+                                $paymentMethodSummary['cash']['count']++;
+                            }
+                            break;
                     }
-                } else {
-                    $paymentMethodSummary['cash']['count']++;
                 }
             }
             
@@ -529,6 +560,8 @@ class PosReportController extends Controller
             'excedent' => 0,
             'visacard' => 0,
             'breakfast_room' => 0,
+            'bank_transfer' => 0,  // NEW
+            'check' => 0,          // NEW
             'total' => 0,
             // NEW: Add transaction metrics
             'transaction_count' => 0,
@@ -582,28 +615,44 @@ class PosReportController extends Controller
                 $result['total'] += $amount;
                 $waiterSales[$waiter]['total_sales'] += $amount;
                 
-                // Determine payment method based on bank_account or status
-                if ($sale->charged_to_room) {
-                    $result['credit'] += $amount;
-                } elseif ($sale->bank_account_id) {
-                    // Check bank account type
-                    $bankAccount = \Workdo\Account\Models\BankAccount::find($sale->bank_account_id);
-                    if ($bankAccount) {
-                        $accountName = strtolower($bankAccount->account_name);
-                        if (str_contains($accountName, 'momo') || str_contains($accountName, 'mobile')) {
-                            $result['momo'] += $amount;
-                        } elseif (str_contains($accountName, 'pos') || str_contains($accountName, 'card')) {
-                            $result['pos_bank'] += $amount;
-                        } elseif (str_contains($accountName, 'visa')) {
-                            $result['visacard'] += $amount;
+                // Use actual payment_method field from payment record
+                $paymentMethod = $sale->payment->payment_method ?? 'cash';
+                
+                // Map payment method to category
+                switch ($paymentMethod) {
+                    case 'cash':
+                        $result['cash'] += $amount;
+                        break;
+                        
+                    case 'card':
+                        $result['pos_bank'] += $amount;
+                        break;
+                        
+                    case 'mtn_momo':
+                    case 'airtel_money':
+                        $result['momo'] += $amount;
+                        break;
+                        
+                    case 'bank':
+                        $result['bank_transfer'] += $amount;
+                        break;
+                        
+                    case 'check':
+                        $result['check'] += $amount;
+                        break;
+                        
+                    case 'charge_to_room':
+                        $result['credit'] += $amount;
+                        break;
+                        
+                    default:
+                        // Fallback: check if charged to room
+                        if ($sale->charged_to_room) {
+                            $result['credit'] += $amount;
                         } else {
                             $result['cash'] += $amount;
                         }
-                    } else {
-                        $result['cash'] += $amount;
-                    }
-                } else {
-                    $result['cash'] += $amount;
+                        break;
                 }
             }
         }
