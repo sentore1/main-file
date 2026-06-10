@@ -22,20 +22,32 @@ interface DepartmentSales {
     visacard: number;
     breakfast_room: number;
     total: number;
+    transaction_count?: number;
+    average_transaction?: number;
+    items_sold?: number;
+}
+
+interface PaymentMethodData {
+    amount: number;
+    count: number;
+    percentage: number;
 }
 
 interface Props {
     date: string;
     warehouseId?: number;
     warehouses: Array<{ id: number; name: string }>;
+    openingBalance: {
+        amount: number;
+        source: string;
+        note: string;
+    };
     salesByDepartment: Record<string, DepartmentSales>;
-    totals: DepartmentSales;
-    cashDeposit: {
-        momo_from_md: number;
-        advance_from_sport_center: number;
-        cash_collection: number;
-        recovery: number;
-        total: number;
+    paymentMethodSummary: Record<string, PaymentMethodData>;
+    totals: DepartmentSales & {
+        transaction_count: number;
+        cash_collected: number;
+        electronic_payments: number;
     };
     purchases: {
         bar: { paid: number; credit: number };
@@ -44,19 +56,67 @@ interface Props {
         cofe_shop: { paid: number; credit: number };
         sport_center: { paid: number; credit: number };
         house_keeping: { paid: number; credit: number };
+        total_paid: number;
+        total_credit: number;
         total: number;
     };
     otherExpenses: {
         paid: number;
         credit: number;
+        total_paid: number;
+        total_credit: number;
         total: number;
     };
-    closingBalance: number;
+    receivables?: {
+        details: Array<any>;
+        total: number;
+        count: number;
+        overdue: number;
+    };
+    payables?: {
+        details: Array<any>;
+        total: number;
+        count: number;
+        overdue: number;
+    };
+    comparisons?: {
+        previous_day: {
+            date: string;
+            sales: number;
+            difference: number;
+            percentage: number;
+        };
+    };
+    topPerformers?: {
+        top_products: Array<any>;
+    };
+    cashFlow: {
+        opening: number;
+        cash_in: number;
+        total_available: number;
+        cash_out: number;
+        closing: number;
+    };
 }
 
 export default function DailyFinancial() {
     const { t } = useTranslation();
-    const { date, warehouseId, warehouses, salesByDepartment, totals, cashDeposit, purchases, otherExpenses, closingBalance } = usePage<Props>().props;
+    const { 
+        date, 
+        warehouseId, 
+        warehouses, 
+        openingBalance,
+        salesByDepartment, 
+        paymentMethodSummary,
+        totals, 
+        purchases, 
+        otherExpenses,
+        receivables,
+        payables,
+        comparisons,
+        topPerformers,
+        cashFlow
+    } = usePage<Props>().props;
     const [selectedDate, setSelectedDate] = useState(date);
     const [selectedWarehouse, setSelectedWarehouse] = useState(warehouseId?.toString() || 'all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -303,201 +363,307 @@ export default function DailyFinancial() {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">I.</td>
-                                    <td className="px-3 py-1 font-semibold">OPENING BALANCE ON (+)</td>
-                                    <td className="px-3 py-1 text-right">-</td>
+                                {/* I. Opening Balance */}
+                                <tr className="border-b bg-blue-50">
+                                    <td className="px-3 py-2 font-semibold">I.</td>
+                                    <td className="px-3 py-2 font-semibold">OPENING BALANCE</td>
+                                    <td className="px-3 py-2 text-right font-semibold">{formatCurrency(openingBalance?.amount || 0)}</td>
                                 </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">II.</td>
-                                    <td className="px-3 py-1 font-semibold">OPENING CREDIT(+)</td>
-                                    <td className="px-3 py-1 text-right">-</td>
+                                
+                                {/* II. Sales Today */}
+                                <tr className="border-b bg-green-50">
+                                    <td className="px-3 py-2 font-semibold">II.</td>
+                                    <td className="px-3 py-2 font-semibold">SALES TODAY</td>
+                                    <td className="px-3 py-2 text-right font-semibold">{formatCurrency(totals.total)}</td>
                                 </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">III.</td>
-                                    <td className="px-3 py-1 font-semibold">SALES</td>
-                                    <td className="px-3 py-1 text-right font-semibold">{formatCurrency(totals.total)}</td>
+                                
+                                {/* A. Sales by Department */}
+                                <tr className="bg-gray-50">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 font-semibold italic">A. Sales by Department</td>
+                                    <td className="px-3 py-1"></td>
                                 </tr>
                                 
                                 {/* Department Sales */}
                                 {Object.entries(salesByDepartment).map(([dept, data], index) => (
-                                    data.total > 0 && renderPaymentRow(dept, data)
+                                    data.total > 0 && (
+                                        <tr key={index} className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">{dept}</td>
+                                            <td className="px-3 py-1 text-right">{formatCurrency(data.total)}</td>
+                                        </tr>
+                                    )
                                 ))}
 
-                                {/* Totals */}
-                                <tr className="bg-gray-100 font-bold border-b">
+                                {/* B. Payment Method Breakdown */}
+                                <tr className="bg-gray-50 border-t-2">
                                     <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">TOTAL SALES</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.total)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
+                                    <td className="px-3 py-2 font-semibold italic">B. Payment Method Breakdown (How Customers Paid)</td>
                                     <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">TOTAL MOMO SALES</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.momo)}</td>
                                 </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">TOTAL CREDIT</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.credit)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">ADVANCE</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.advance)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">RECOVERY</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.recovery)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">EXCEDENT</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.excedent)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">VISACARD</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.visacard)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">POS</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.pos_bank)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">COMPLEMENTARY</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.complementary)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">BREAKFAST ROOM</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.breakfast_room)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">TOTAL CASH SALES</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.cash)}</td>
-                                </tr>
-
-                                {/* Cash Deposit */}
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">IV.</td>
-                                    <td className="px-3 py-1 font-semibold">CASH DEPOSIT</td>
-                                    <td className="px-3 py-1 text-right font-semibold">{formatCurrency(cashDeposit.total)}</td>
-                                </tr>
-                                <tr className="border-b">
+                                <tr className="bg-gray-100 text-xs">
                                     <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">MOMO FROM MD</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(cashDeposit.momo_from_md)}</td>
+                                    <td className="px-3 py-1 font-semibold">Payment Method</td>
+                                    <td className="px-3 py-1 text-right font-semibold"># Trans | Amount | %</td>
                                 </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">ADVANCE FROM SPORT CENTER</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(cashDeposit.advance_from_sport_center)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">CASH COLLECTION</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(cashDeposit.cash_collection)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">RECOVERY</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(cashDeposit.recovery)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
+                                
+                                {paymentMethodSummary && Object.entries(paymentMethodSummary).map(([method, data], idx) => (
+                                    data.amount > 0 && (
+                                        <tr key={idx} className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">
+                                                {method === 'cash' && 'CASH'}
+                                                {method === 'momo' && 'MOMO (Mobile Money)'}
+                                                {method === 'pos_bank' && 'POS CARD'}
+                                                {method === 'visacard' && 'VISACARD'}
+                                                {method === 'credit' && 'ROOM CHARGES (Credit)'}
+                                            </td>
+                                            <td className="px-3 py-1 text-right text-xs">
+                                                {data.count} trans | {formatCurrency(data.amount)} | {data.percentage.toFixed(1)}%
+                                            </td>
+                                        </tr>
+                                    )
+                                ))}
+                                
+                                <tr className="bg-blue-50 border-t-2">
                                     <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">Total cash Deposit</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(cashDeposit.total)}</td>
+                                    <td className="px-3 py-2 font-semibold pl-6">TOTAL</td>
+                                    <td className="px-3 py-2 text-right font-semibold">{totals.transaction_count || 0} trans | {formatCurrency(totals.total)}</td>
                                 </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">TOTAL Cash Available (opening bal +cash sales +cash deposit)</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(totals.cash + cashDeposit.total)}</td>
+                                
+                                {/* Summary */}
+                                <tr className="bg-green-50">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 text-sm italic pl-6">Cash Collected: {formatCurrency(totals.cash_collected || totals.cash)}</td>
+                                    <td className="px-3 py-1 text-right text-sm">(goes to register)</td>
+                                </tr>
+                                <tr className="bg-green-50">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 text-sm italic pl-6">Electronic Payments: {formatCurrency(totals.electronic_payments || 0)}</td>
+                                    <td className="px-3 py-1 text-right text-sm">(goes to bank)</td>
+                                </tr>
+                                <tr className="bg-yellow-50">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 text-sm italic pl-6">Room Charges: {formatCurrency(totals.credit)}</td>
+                                    <td className="px-3 py-1 text-right text-sm">(not yet collected)</td>
                                 </tr>
 
                                 {/* Purchases */}
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">V.</td>
-                                    <td className="px-3 py-1 font-semibold">Purchases</td>
-                                    <td className="px-3 py-1 text-right"></td>
+                                <tr className="border-b bg-orange-50 border-t-2">
+                                    <td className="px-3 py-2 font-semibold">III.</td>
+                                    <td className="px-3 py-2 font-semibold">PURCHASES TODAY</td>
+                                    <td className="px-3 py-2 text-right font-semibold">{formatCurrency(purchases.total)}</td>
                                 </tr>
-                                <tr className="border-b">
+                                <tr className="bg-gray-100 text-xs">
                                     <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">Bar</td>
-                                    <td className="px-3 py-1 text-right"></td>
+                                    <td className="px-3 py-1 font-semibold">Department</td>
+                                    <td className="px-3 py-1 text-right font-semibold">Paid | Credit</td>
                                 </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">Purchases Paid</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.bar.paid)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">Credit Purchases</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.bar.credit)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">sub-Total</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.bar.paid)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">Resto</td>
-                                    <td className="px-3 py-1 text-right"></td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">Purchases Paid</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.resto.paid)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">Credit Purchases</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.resto.credit)}</td>
-                                </tr>
-                                <tr className="border-b">
-                                    <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1 pl-6">sub-Total</td>
-                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.resto.paid)}</td>
-                                </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
+                                {purchases.bar.paid + purchases.bar.credit > 0 && (
+                                    <tr className="border-b">
+                                        <td className="px-3 py-1"></td>
+                                        <td className="px-3 py-1 pl-6">Bar</td>
+                                        <td className="px-3 py-1 text-right text-xs">{formatCurrency(purchases.bar.paid)} | {formatCurrency(purchases.bar.credit)}</td>
+                                    </tr>
+                                )}
+                                {purchases.resto.paid + purchases.resto.credit > 0 && (
+                                    <tr className="border-b">
+                                        <td className="px-3 py-1"></td>
+                                        <td className="px-3 py-1 pl-6">Restaurant</td>
+                                        <td className="px-3 py-1 text-right text-xs">{formatCurrency(purchases.resto.paid)} | {formatCurrency(purchases.resto.credit)}</td>
+                                    </tr>
+                                )}
+                                {purchases.cofe_shop.paid + purchases.cofe_shop.credit > 0 && (
+                                    <tr className="border-b">
+                                        <td className="px-3 py-1"></td>
+                                        <td className="px-3 py-1 pl-6">Coffee Shop</td>
+                                        <td className="px-3 py-1 text-right text-xs">{formatCurrency(purchases.cofe_shop.paid)} | {formatCurrency(purchases.cofe_shop.credit)}</td>
+                                    </tr>
+                                )}
+                                {purchases.house_keeping.paid + purchases.house_keeping.credit > 0 && (
+                                    <tr className="border-b">
+                                        <td className="px-3 py-1"></td>
+                                        <td className="px-3 py-1 pl-6">Housekeeping</td>
+                                        <td className="px-3 py-1 text-right text-xs">{formatCurrency(purchases.house_keeping.paid)} | {formatCurrency(purchases.house_keeping.credit)}</td>
+                                    </tr>
+                                )}
+                                {purchases.maintenance_office_reception.paid + purchases.maintenance_office_reception.credit > 0 && (
+                                    <tr className="border-b">
+                                        <td className="px-3 py-1"></td>
+                                        <td className="px-3 py-1 pl-6">Maintenance/Office</td>
+                                        <td className="px-3 py-1 text-right text-xs">{formatCurrency(purchases.maintenance_office_reception.paid)} | {formatCurrency(purchases.maintenance_office_reception.credit)}</td>
+                                    </tr>
+                                )}
+                                <tr className="bg-orange-100 font-semibold">
                                     <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">Total Purchases Paid</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(purchases.total)}</td>
+                                    <td className="px-3 py-2">TOTAL PURCHASES</td>
+                                    <td className="px-3 py-2 text-right">{formatCurrency(purchases.total_paid)} | {formatCurrency(purchases.total_credit)}</td>
                                 </tr>
 
                                 {/* Other Expenses */}
-                                <tr className="border-b">
-                                    <td className="px-3 py-1 font-semibold">VI.</td>
-                                    <td className="px-3 py-1 font-semibold">OTHER EXPENSES(breakdown)</td>
-                                    <td className="px-3 py-1 text-right"></td>
+                                <tr className="border-b bg-red-50 border-t-2">
+                                    <td className="px-3 py-2 font-semibold">IV.</td>
+                                    <td className="px-3 py-2 font-semibold">OTHER EXPENSES TODAY</td>
+                                    <td className="px-3 py-2 text-right font-semibold">{formatCurrency(otherExpenses.total)}</td>
                                 </tr>
                                 <tr className="border-b">
                                     <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">Other expenses Paid</td>
+                                    <td className="px-3 py-1 pl-6">Expenses Paid</td>
                                     <td className="px-3 py-1 text-right">{formatCurrency(otherExpenses.paid)}</td>
                                 </tr>
                                 <tr className="border-b">
                                     <td className="px-3 py-1"></td>
-                                    <td className="px-3 py-1">Credit Purchases</td>
+                                    <td className="px-3 py-1 pl-6">Credit Expenses</td>
                                     <td className="px-3 py-1 text-right">{formatCurrency(otherExpenses.credit)}</td>
                                 </tr>
-                                <tr className="bg-gray-100 font-bold border-b">
-                                    <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">Total Other expenses</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(otherExpenses.total)}</td>
-                                </tr>
 
-                                {/* Closing Balance */}
-                                <tr className="bg-blue-100 font-bold border-b">
+                                {/* Cash Flow Summary */}
+                                <tr className="border-b bg-blue-50 border-t-2">
+                                    <td className="px-3 py-2 font-semibold">V.</td>
+                                    <td className="px-3 py-2 font-semibold">CASH FLOW SUMMARY</td>
                                     <td className="px-3 py-2"></td>
-                                    <td className="px-3 py-2">Closing balance of Cash ( Total cash availables-Total Purchases paid-total other expenses paid</td>
-                                    <td className="px-3 py-2 text-right">{formatCurrency(closingBalance)}</td>
                                 </tr>
+                                <tr className="border-b">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 pl-6">Opening Cash Balance</td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(cashFlow.opening)}</td>
+                                </tr>
+                                <tr className="border-b">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 pl-6">+ Cash Collected Today</td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(cashFlow.cash_in)}</td>
+                                </tr>
+                                <tr className="bg-gray-100 font-semibold">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 pl-6">= Total Cash Available</td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(cashFlow.total_available)}</td>
+                                </tr>
+                                <tr className="border-b">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 pl-6">- Purchases Paid (Cash)</td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(purchases.total_paid)}</td>
+                                </tr>
+                                <tr className="border-b">
+                                    <td className="px-3 py-1"></td>
+                                    <td className="px-3 py-1 pl-6">- Expenses Paid (Cash)</td>
+                                    <td className="px-3 py-1 text-right">{formatCurrency(otherExpenses.total_paid)}</td>
+                                </tr>
+                                <tr className="bg-blue-100 font-bold text-lg">
+                                    <td className="px-3 py-2"></td>
+                                    <td className="px-3 py-2 pl-6">= CLOSING CASH BALANCE</td>
+                                    <td className="px-3 py-2 text-right">{formatCurrency(cashFlow.closing)}</td>
+                                </tr>
+                                <tr className="bg-yellow-50">
+                                    <td className="px-3 py-2" colSpan={3}>
+                                        <div className="text-center text-sm">
+                                            <strong>VERIFICATION:</strong> Count cash in register. Should have <strong>{formatCurrency(cashFlow.closing)}</strong>
+                                        </div>
+                                    </td>
+                                </tr>
+                                
+                                {/* Receivables (if available) */}
+                                {receivables && receivables.total > 0 && (
+                                    <>
+                                        <tr className="border-b bg-green-50 border-t-2">
+                                            <td className="px-3 py-2 font-semibold">VI.</td>
+                                            <td className="px-3 py-2 font-semibold">ACCOUNTS RECEIVABLE (Who Owes Us)</td>
+                                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(receivables.total)}</td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Total Outstanding</td>
+                                            <td className="px-3 py-1 text-right">{formatCurrency(receivables.total)}</td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Number of Customers</td>
+                                            <td className="px-3 py-1 text-right">{receivables.count}</td>
+                                        </tr>
+                                        {receivables.overdue > 0 && (
+                                            <tr className="bg-red-50">
+                                                <td className="px-3 py-1"></td>
+                                                <td className="px-3 py-1 pl-6 text-red-600">Overdue (&gt;30 days)</td>
+                                                <td className="px-3 py-1 text-right text-red-600 font-semibold">{formatCurrency(receivables.overdue)}</td>
+                                            </tr>
+                                        )}
+                                    </>
+                                )}
+                                
+                                {/* Payables (if available) */}
+                                {payables && payables.total > 0 && (
+                                    <>
+                                        <tr className="border-b bg-red-50 border-t-2">
+                                            <td className="px-3 py-2 font-semibold">VII.</td>
+                                            <td className="px-3 py-2 font-semibold">ACCOUNTS PAYABLE (Who We Owe)</td>
+                                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(payables.total)}</td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Total Outstanding</td>
+                                            <td className="px-3 py-1 text-right">{formatCurrency(payables.total)}</td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Number of Suppliers</td>
+                                            <td className="px-3 py-1 text-right">{payables.count}</td>
+                                        </tr>
+                                        {payables.overdue > 0 && (
+                                            <tr className="bg-red-100">
+                                                <td className="px-3 py-1"></td>
+                                                <td className="px-3 py-1 pl-6 text-red-700">OVERDUE - PAY NOW!</td>
+                                                <td className="px-3 py-1 text-right text-red-700 font-bold">{formatCurrency(payables.overdue)}</td>
+                                            </tr>
+                                        )}
+                                    </>
+                                )}
+                                
+                                {/* Performance Comparison (if available) */}
+                                {comparisons && comparisons.previous_day && (
+                                    <>
+                                        <tr className="border-b bg-purple-50 border-t-2">
+                                            <td className="px-3 py-2 font-semibold">VIII.</td>
+                                            <td className="px-3 py-2 font-semibold">PERFORMANCE vs YESTERDAY</td>
+                                            <td className="px-3 py-2"></td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Yesterday's Sales</td>
+                                            <td className="px-3 py-1 text-right">{formatCurrency(comparisons.previous_day.sales)}</td>
+                                        </tr>
+                                        <tr className="border-b">
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6">Today's Sales</td>
+                                            <td className="px-3 py-1 text-right">{formatCurrency(totals.total)}</td>
+                                        </tr>
+                                        <tr className={comparisons.previous_day.difference >= 0 ? "bg-green-50" : "bg-red-50"}>
+                                            <td className="px-3 py-1"></td>
+                                            <td className="px-3 py-1 pl-6 font-semibold">
+                                                {comparisons.previous_day.difference >= 0 ? 'Increase' : 'Decrease'}
+                                            </td>
+                                            <td className="px-3 py-1 text-right font-semibold">
+                                                {comparisons.previous_day.difference >= 0 ? '+' : ''}{formatCurrency(comparisons.previous_day.difference)} ({comparisons.previous_day.percentage.toFixed(1)}%)
+                                            </td>
+                                        </tr>
+                                    </>
+                                )}
+                                
+                                {/* Top Products (if available) */}
+                                {topPerformers && topPerformers.top_products && topPerformers.top_products.length > 0 && (
+                                    <>
+                                        <tr className="border-b bg-yellow-50 border-t-2">
+                                            <td className="px-3 py-2 font-semibold" colSpan={3}>IX. TOP SELLING PRODUCTS TODAY</td>
+                                        </tr>
+                                        {topPerformers.top_products.slice(0, 5).map((product, idx) => (
+                                            <tr key={idx} className="border-b">
+                                                <td className="px-3 py-1"></td>
+                                                <td className="px-3 py-1 pl-6 text-xs">
+                                                    {idx + 1}. {product.name} ({product.quantity} sold)
+                                                </td>
+                                                <td className="px-3 py-1 text-right text-xs">{formatCurrency(product.revenue)}</td>
+                                            </tr>
+                                        ))}
+                                    </>
+                                )}
                             </tbody>
                         </table>
 
