@@ -174,7 +174,8 @@ export const printReceipt = (completedSale: any, globalSettings: any) => {
             
             <div class="items-section">
                 ${completedSale.items.map((item: any) => {
-                    const itemSubtotal = item.price * item.quantity;
+                    const effectivePrice = item.customPrice !== undefined ? item.customPrice : item.price;
+                    const itemSubtotal = effectivePrice * item.quantity;
                     const itemTaxRate = item.taxes && item.taxes.length > 0 ? item.taxes[0].rate : 0;
                     const itemTaxAmount = (itemSubtotal * itemTaxRate) / 100;
                     return `
@@ -189,7 +190,7 @@ export const printReceipt = (completedSale: any, globalSettings: any) => {
                                 </div>
                                 <div class="item-row">
                                     <span>Price:</span>
-                                    <span>${formatCurrency(item.price)}</span>
+                                    <span>${formatCurrency(effectivePrice)}</span>
                                 </div>
                                 <div class="item-row">
                                     <span>Tax (${itemTaxRate}%):</span>

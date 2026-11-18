@@ -72,7 +72,8 @@ export const downloadReceiptPDF = async (completedSale: any, globalSettings: any
             
             <div class="items-section">
                 ${completedSale.items.map((item: any) => {
-                    const itemSubtotal = item.price * item.quantity;
+                    const effectivePrice = item.customPrice !== undefined ? item.customPrice : item.price;
+                    const itemSubtotal = effectivePrice * item.quantity;
                     let itemTaxAmount = 0;
                     let taxDisplay = '';
                     if (item.taxes && item.taxes.length > 0) {
@@ -96,7 +97,7 @@ export const downloadReceiptPDF = async (completedSale: any, globalSettings: any
                                 </div>
                                 <div class="total-row">
                                     <span>Price:</span>
-                                    <span>${formatCurrency(item.price)}</span>
+                                    <span>${formatCurrency(effectivePrice)}</span>
                                 </div>
                                 <div class="total-row">
                                     <span>Tax:</span>

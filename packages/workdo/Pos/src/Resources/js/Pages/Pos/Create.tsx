@@ -34,7 +34,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ShoppingCart, Search, CreditCard, Plus, Minus, Trash2, X, Home, Printer, FileText, Image, Package, Barcode, UserPlus, Edit2, Check, Download } from 'lucide-react';
+import { ShoppingCart, Search, CreditCard, Plus, Minus, Trash2, X, Home, Printer, FileText, Image, Package, Barcode, UserPlus, Edit2, Check, Download, Building2 } from 'lucide-react';
 import { getImagePath, formatCurrency,formatDate } from '@/utils/helpers';
 import { useFavicon } from '@/hooks/use-favicon';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -122,7 +122,18 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
     const [cart, setCart] = useState<CartItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
-    const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
+    const [newCustomer, setNewCustomer] = useState({
+        name: '', email: '', phone: '',
+        is_hotel_guest: false,
+        id_type: 'national_id',
+        id_number: '',
+        nationality: '',
+        date_of_birth: '',
+        gender: '',
+        address: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
+    });
     const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
     const [editingNotesId, setEditingNotesId] = useState<number | null>(null);
     const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
@@ -617,6 +628,10 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
             alert(t('Please fill in name and email'));
             return;
         }
+        if (newCustomer.is_hotel_guest && !newCustomer.id_number) {
+            alert(t('Please fill in the ID / Passport number'));
+            return;
+        }
 
         fetch('/pos/customers', {
             method: 'POST',
@@ -635,7 +650,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                 customers.push(data.customer);
                 setSelectedCustomer(data.customer.id.toString());
                 setShowAddCustomerModal(false);
-                setNewCustomer({ name: '', email: '', phone: '' });
+                setNewCustomer({ name: '', email: '', phone: '', is_hotel_guest: false, id_type: 'national_id', id_number: '', nationality: '', date_of_birth: '', gender: '', address: '', emergency_contact_name: '', emergency_contact_phone: '' });
                 alert(data.message);
             } else {
                 alert(data.message);
@@ -646,6 +661,8 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
             alert(t('Failed to create customer'));
         });
     };
+
+    const hasRoomInCart = cart.some(item => item.is_room);
 
     const filteredProducts = selectedCategory === 'rooms' 
         ? rooms.filter(room =>
@@ -1306,7 +1323,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                         disabled={cart.length === 0 || !selectedWarehouse}
                                     >
                                         <CreditCard className="h-4 w-4 mr-2" />
-                                        {t('Checkout')}
+                                        {hasRoomInCart ? t('Book Now') : t('Checkout')}
                                     </Button>
 
                                 </div>
@@ -1605,7 +1622,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
 
             {/* Add Customer Modal */}
             <Dialog open={showAddCustomerModal} onOpenChange={setShowAddCustomerModal}>
-                <DialogContent className="max-w-md" aria-describedby="add-customer-modal-description">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" aria-describedby="add-customer-modal-description">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-primary/10 rounded-lg">
@@ -1619,11 +1636,12 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                     </DialogHeader>
 
                     <div className="space-y-4 p-4">
+                        {/* Basic fields */}
                         <div>
                             <label className="text-sm font-medium mb-1 block">{t('Name')} *</label>
                             <Input
                                 type="text"
-                                placeholder={t('Customer Name')}
+                                placeholder={t('Full Name')}
                                 value={newCustomer.name}
                                 onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
                                 className="h-10"
@@ -1649,15 +1667,140 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                 className="h-10"
                             />
                         </div>
+
+                        {/* Hotel Guest Toggle */}
+                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div>
+                                <p className="text-sm font-semibold text-blue-900 flex items-center gap-1.5"><Building2 className="h-4 w-4" /> {t('Hotel Guest')}</p>
+                                <p className="text-xs text-blue-600">{t('Collect ID and guest details for room booking')}</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={newCustomer.is_hotel_guest}
+                                    onChange={(e) => setNewCustomer({...newCustomer, is_hotel_guest: e.target.checked})}
+                                />
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                            </label>
+                        </div>
+
+                        {/* Hotel Guest Fields — shown only when toggled on */}
+                        {newCustomer.is_hotel_guest && (
+                            <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('Guest Details')}</p>
+
+                                {/* ID Type + ID Number */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('ID Type')} *</label>
+                                        <select
+                                            value={newCustomer.id_type}
+                                            onChange={(e) => setNewCustomer({...newCustomer, id_type: e.target.value})}
+                                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                                        >
+                                            <option value="national_id">{t('National ID')}</option>
+                                            <option value="passport">{t('Passport')}</option>
+                                            <option value="driving_license">{t('Driving License')}</option>
+                                            <option value="other">{t('Other')}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('ID / Passport No.')} *</label>
+                                        <Input
+                                            type="text"
+                                            placeholder="e.g. 1 1990 8 0012345 6"
+                                            value={newCustomer.id_number}
+                                            onChange={(e) => setNewCustomer({...newCustomer, id_number: e.target.value})}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Nationality + Gender */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('Nationality')}</label>
+                                        <Input
+                                            type="text"
+                                            placeholder={t('e.g. Rwandan')}
+                                            value={newCustomer.nationality}
+                                            onChange={(e) => setNewCustomer({...newCustomer, nationality: e.target.value})}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('Gender')}</label>
+                                        <select
+                                            value={newCustomer.gender}
+                                            onChange={(e) => setNewCustomer({...newCustomer, gender: e.target.value})}
+                                            className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                                        >
+                                            <option value="">{t('Select...')}</option>
+                                            <option value="male">{t('Male')}</option>
+                                            <option value="female">{t('Female')}</option>
+                                            <option value="other">{t('Other')}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Date of Birth */}
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">{t('Date of Birth')}</label>
+                                    <Input
+                                        type="date"
+                                        value={newCustomer.date_of_birth}
+                                        onChange={(e) => setNewCustomer({...newCustomer, date_of_birth: e.target.value})}
+                                        className="h-10"
+                                    />
+                                </div>
+
+                                {/* Address */}
+                                <div>
+                                    <label className="text-sm font-medium mb-1 block">{t('Address')}</label>
+                                    <Input
+                                        type="text"
+                                        placeholder={t('Home address')}
+                                        value={newCustomer.address}
+                                        onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                                        className="h-10"
+                                    />
+                                </div>
+
+                                {/* Emergency Contact */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('Emergency Contact Name')}</label>
+                                        <Input
+                                            type="text"
+                                            placeholder={t('Contact Name')}
+                                            value={newCustomer.emergency_contact_name}
+                                            onChange={(e) => setNewCustomer({...newCustomer, emergency_contact_name: e.target.value})}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium mb-1 block">{t('Emergency Contact Phone')}</label>
+                                        <Input
+                                            type="text"
+                                            placeholder={t('Contact Phone')}
+                                            value={newCustomer.emergency_contact_phone}
+                                            onChange={(e) => setNewCustomer({...newCustomer, emergency_contact_phone: e.target.value})}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-2 p-4 border-t">
-                        <Button 
-                            type="button" 
-                            variant="outline" 
+                        <Button
+                            type="button"
+                            variant="outline"
                             onClick={() => {
                                 setShowAddCustomerModal(false);
-                                setNewCustomer({ name: '', email: '', phone: '' });
+                                setNewCustomer({ name: '', email: '', phone: '', is_hotel_guest: false, id_type: 'national_id', id_number: '', nationality: '', date_of_birth: '', gender: '', address: '', emergency_contact_name: '', emergency_contact_phone: '' });
                             }}
                         >
                             {t('Cancel')}

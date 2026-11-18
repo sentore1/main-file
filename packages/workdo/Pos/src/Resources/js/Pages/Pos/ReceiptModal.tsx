@@ -123,7 +123,8 @@ export default function ReceiptModal({ isOpen, onClose, completedSale, globalSet
                                 {/* Items */}
                                 <div className="mb-3">
                                     {completedSale.items.map((item: any) => {
-                                        const itemSubtotal = item.price * item.quantity;
+                                        const effectivePrice = item.customPrice !== undefined ? item.customPrice : item.price;
+                                        const itemSubtotal = effectivePrice * item.quantity;
                                         let itemTaxAmount = 0;
                                         let taxDisplay = '';
                                         if (item.taxes && item.taxes.length > 0) {
@@ -151,7 +152,7 @@ export default function ReceiptModal({ isOpen, onClose, completedSale, globalSet
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span>{t('Price')}:</span>
-                                                        <span className="font-medium">{formatCurrency(item.price)}</span>
+                                                        <span className="font-medium">{formatCurrency(effectivePrice)}</span>
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span>{t('Tax')}:</span>

@@ -1172,9 +1172,19 @@ class PosController extends Controller
     {
         if(Auth::user()->can('create-pos')){
             $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'phone' => 'nullable|string|max:20',
+                'name'                    => 'required|string|max:255',
+                'email'                   => 'required|email|unique:users,email',
+                'phone'                   => 'nullable|string|max:20',
+                // Hotel guest fields (optional)
+                'is_hotel_guest'          => 'nullable|boolean',
+                'id_type'                 => 'nullable|string|in:national_id,passport,driving_license,other',
+                'id_number'               => 'nullable|string|max:100',
+                'nationality'             => 'nullable|string|max:100',
+                'date_of_birth'           => 'nullable|date',
+                'gender'                  => 'nullable|string|in:male,female,other',
+                'address'                 => 'nullable|string|max:500',
+                'emergency_contact_name'  => 'nullable|string|max:255',
+                'emergency_contact_phone' => 'nullable|string|max:50',
             ]);
 
             DB::beginTransaction();
@@ -1189,13 +1199,33 @@ class PosController extends Controller
                 $customer->save();
                 $customer->assignRole('client');
 
+                // Save hotel guest details if toggled on
+                if ($request->boolean('is_hotel_guest')) {
+                    \Workdo\Pos\Models\PosGuestDetail::create([
+                        'user_id'                 => $customer->id,
+                        'id_type'                 => $request->id_type ?? 'national_id',
+                        'id_number'               => $request->id_number,
+                        'nationality'             => $request->nationality,
+                        'date_of_birth'           => $request->date_of_birth,
+                        'gender'                  => $request->gender,
+                        'address'                 => $request->address,
+                        'emergency_contact_name'  => $request->emergency_contact_name,
+                        'emergency_contact_phone' => $request->emergency_contact_phone,
+                    ]);
+                }
+
                 DB::commit();
+
+                // Load guest details for response
+                $guestDetail = \Workdo\Pos\Models\PosGuestDetail::where('user_id', $customer->id)->first();
+
                 return response()->json([
                     'success' => true,
                     'customer' => [
-                        'id' => $customer->id,
-                        'name' => $customer->name,
-                        'email' => $customer->email,
+                        'id'           => $customer->id,
+                        'name'         => $customer->name,
+                        'email'        => $customer->email,
+                        'guest_detail' => $guestDetail,
                     ],
                     'message' => __('Customer created successfully')
                 ]);
