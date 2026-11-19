@@ -11,6 +11,17 @@ export interface User {
     is_disable?: number;
     avatar?: string;
     created_at: string;
+    warehouse_ids?: number[];
+    guest_detail?: {
+        id_type: string;
+        id_number: string | null;
+        nationality: string | null;
+        date_of_birth: string | null;
+        gender: string | null;
+        address: string | null;
+        emergency_contact_name: string | null;
+        emergency_contact_phone: string | null;
+    } | null;
 }
 
 export interface CreateUserFormData {
@@ -43,6 +54,7 @@ export interface EditUserProps {
     user: User;
     onSuccess: () => void;
     roles?: Record<string, string>;
+    warehouses?: Warehouse[];
 }
 
 export interface ChangePasswordProps {
@@ -68,7 +80,14 @@ export interface UsersIndexProps {
     users: PaginatedUsers;
     roles: Record<string, string>;
     auth: AuthContext;
+    warehouses: Warehouse[];
     [key: string]: unknown;
+}
+
+export interface Warehouse {
+    id: number;
+    name: string;
+    address: string;
 }
 
 export interface UserFormErrors {

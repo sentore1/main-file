@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useFormFields } from '@/hooks/useFormFields';
@@ -28,7 +28,8 @@ interface CreateProps {
 
 export default function Create() {
     const { t } = useTranslation();
-    const { vendors, products, warehouses, modules } = usePage<CreateProps>().props;
+    const { vendors, products: initialProducts, warehouses, modules } = usePage<CreateProps>().props;
+    const [products, setProducts] = useState<typeof initialProducts>(initialProducts);
 
     const { data, setData, post, processing, errors } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
@@ -229,6 +230,8 @@ export default function Create() {
                                 errors={errors}
                                 products={products}
                                 showAddButton={false}
+                                onProductAdded={(p) => setProducts(prev => [...prev, p])}
+                                defaultWarehouseId={data.warehouse_id}
                             />
 
                             {/* Invoice Summary - Bottom of Items */}

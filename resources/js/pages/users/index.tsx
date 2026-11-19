@@ -10,9 +10,9 @@ import AuthenticatedLayout from "@/layouts/authenticated-layout";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Edit, Trash2, Key, Users as UsersIcon, User as UserIcon, UserCheck, History, Lock, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, Key, Users as UsersIcon, User as UserIcon, UserCheck, History, Lock, Upload, Eye } from "lucide-react";
 import { getImagePath } from '@/utils/helpers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
@@ -24,11 +24,11 @@ import EditUser from './edit';
 import ChangePassword from './change-password';
 import ImportUsers from './import';
 import NoRecordsFound from '@/components/no-records-found';
-import { User, UsersIndexProps, UserFilters, UserModalState } from './types';
+import { User, UsersIndexProps, UserFilters, UserModalState, Warehouse } from './types';
 
 export default function Index() {
     const { t } = useTranslation();
-    const { users, roles, auth } = usePage<UsersIndexProps>().props;
+    const { users, roles, auth, warehouses = [] } = usePage<UsersIndexProps>().props;
     const urlParams = new URLSearchParams(window.location.search);
 
     const [filters, setFilters] = useState<UserFilters>({
@@ -48,6 +48,7 @@ export default function Index() {
         mode: '',
         data: null
     });
+    const [guestDetailUser, setGuestDetailUser] = useState<User | null>(null);
     const [showFilters, setShowFilters] = useState(false);
 
     // Add hook here
@@ -194,6 +195,18 @@ export default function Index() {
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         <p>{t('Change Password')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                            {user.guest_detail && (
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="sm" onClick={() => setGuestDetailUser(user)} className="h-8 w-8 p-0 text-teal-600 hover:text-teal-700">
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('Guest ID Details')}</p>
                                     </TooltipContent>
                                 </Tooltip>
                             )}
@@ -512,6 +525,18 @@ export default function Index() {
                                                                         </TooltipContent>
                                                                     </Tooltip>
                                                                 )}
+                                                                {user.guest_detail && (
+                                                                    <Tooltip delayDuration={300}>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button variant="ghost" size="sm" onClick={() => setGuestDetailUser(user)} className="h-8 w-8 p-0 text-teal-600">
+                                                                                <Eye className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p>{t('Guest ID Details')}</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                )}
                                                                 {auth.user?.permissions?.includes('delete-users') && (
                                                                     <Tooltip delayDuration={300}>
                                                                         <TooltipTrigger asChild>
@@ -572,6 +597,7 @@ export default function Index() {
                         user={modalState.data}
                         onSuccess={closeModal}
                         roles={roles}
+                        warehouses={warehouses}
                     />
                 )}
                 {modalState.mode === 'change-password' && modalState.data && (
@@ -594,6 +620,76 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+
+            {/* Guest ID Details Modal */}
+            <Dialog open={!!guestDetailUser} onOpenChange={(open) => !open && setGuestDetailUser(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            🪪 {t('Guest ID Details')} — {guestDetailUser?.name}
+                        </DialogTitle>
+                    </DialogHeader>
+                    {guestDetailUser?.guest_detail && (
+                        <div className="space-y-3 pt-2">
+                            {/* Basic info */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('ID Type')}</p>
+                                    <p className="font-medium capitalize text-sm">{guestDetailUser.guest_detail.id_type?.replace('_', ' ')}</p>
+                                </div>
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('ID / Passport No.')}</p>
+                                    <p className="font-mono font-medium text-sm">{guestDetailUser.guest_detail.id_number || '—'}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('Nationality')}</p>
+                                    <p className="font-medium text-sm">{guestDetailUser.guest_detail.nationality || '—'}</p>
+                                </div>
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('Gender')}</p>
+                                    <p className="font-medium text-sm capitalize">{guestDetailUser.guest_detail.gender || '—'}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('Date of Birth')}</p>
+                                    <p className="font-medium text-sm">{guestDetailUser.guest_detail.date_of_birth || '—'}</p>
+                                </div>
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('Phone')}</p>
+                                    <p className="font-medium text-sm">{guestDetailUser.mobile_no || '—'}</p>
+                                </div>
+                            </div>
+                            {guestDetailUser.guest_detail.address && (
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{t('Address')}</p>
+                                    <p className="font-medium text-sm">{guestDetailUser.guest_detail.address}</p>
+                                </div>
+                            )}
+                            {(guestDetailUser.guest_detail.emergency_contact_name || guestDetailUser.guest_detail.emergency_contact_phone) && (
+                                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <p className="text-xs text-orange-700 font-semibold uppercase tracking-wide mb-2">{t('Emergency Contact')}</p>
+                                    <p className="font-medium text-sm">{guestDetailUser.guest_detail.emergency_contact_name || '—'}</p>
+                                    <p className="text-sm text-gray-600">{guestDetailUser.guest_detail.emergency_contact_phone || '—'}</p>
+                                </div>
+                            )}
+                            {/* Basic account info */}
+                            <div className="border-t pt-3 space-y-1">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t('Email')}</span>
+                                    <span className="font-medium">{guestDetailUser.email}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t('Account Type')}</span>
+                                    <span className="font-medium capitalize">{guestDetailUser.type}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

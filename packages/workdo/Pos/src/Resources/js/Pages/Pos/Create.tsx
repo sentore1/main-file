@@ -108,6 +108,14 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
     const globalSettings = isSuperAdmin ? adminAllSetting : companyAllSetting;
 
     const [selectedCustomer, setSelectedCustomer] = useState('');
+    const [selectedBranch, setSelectedBranch] = useState(() => {
+        const saved = sessionStorage.getItem('pos_selected_warehouse');
+        if (saved) {
+            const w = warehouses.find(w => w.id.toString() === saved);
+            return w?.address || (warehouses.length > 0 ? warehouses[0].address : '');
+        }
+        return warehouses.length > 0 ? warehouses[0].address : '';
+    });
     const [selectedWarehouse, setSelectedWarehouse] = useState(() => {
         const saved = sessionStorage.getItem('pos_selected_warehouse');
         const initial = saved || (warehouses.length > 0 ? warehouses[0].id.toString() : '');
@@ -663,6 +671,12 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
     };
 
     const hasRoomInCart = cart.some(item => item.is_room);
+    const [showMobileCart, setShowMobileCart] = useState(false);
+
+    // Derive unique branches from warehouse addresses
+    const branches = Array.from(new Set(warehouses.map(w => w.address).filter(Boolean)));
+    // Warehouses filtered to selected branch
+    const branchWarehouses = warehouses.filter(w => w.address === selectedBranch);
 
     const filteredProducts = selectedCategory === 'rooms' 
         ? rooms.filter(room =>
@@ -689,19 +703,20 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
         <>
             <Head title={t('POS')} />
 
-            <div className="h-screen bg-gray-50 flex flex-col">
-                <div className="flex flex-col lg:flex-row flex-1 overflow-hidden p-2 sm:p-4 gap-2 sm:gap-4 min-h-0">
+            <div className="h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
+                <div className="flex flex-col lg:flex-row flex-1 overflow-hidden p-0 lg:p-3 gap-0 lg:gap-3 min-h-0">
                     {/* Products Section Card */}
-                    <Card className="flex-1 flex flex-col min-w-0 order-2 lg:order-1">
-                        <CardContent className="p-3 sm:p-6 flex flex-col h-full overflow-hidden">
+                    <Card className={`flex-1 flex flex-col min-w-0 order-2 lg:order-1 ${showMobileCart ? 'hidden lg:flex' : 'flex'}`}>
+                        <CardContent className="p-2 sm:p-3 flex flex-col h-full overflow-hidden">
                         {/* Controls */}
-                        <div className="mb-4 sm:mb-6 space-y-2 sm:space-y-4 flex-shrink-0">
-                            <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center">
+                        <div className="mb-2 space-y-1.5 flex-shrink-0">
+                            {/* Row 1: Home + Search + Customer + Add */}
+                            <div className="flex gap-1.5 items-center">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Link href="/pos">
-                                                <Button variant="outline" className="h-10 px-3 w-full lg:w-auto">
+                                                <Button variant="outline" className="h-9 px-2.5 flex-shrink-0">
                                                     <Home className="h-4 w-4" />
                                                 </Button>
                                             </Link>
@@ -712,86 +727,93 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                     </Tooltip>
                                 </TooltipProvider>
 
-                                <div className="relative flex-1 lg:w-80">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <div className="relative flex-1 min-w-0">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
                                     <Input
-                                        placeholder={t('Search products...')}
+                                        placeholder={t('Search...')}
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10 h-10"
+                                        className="pl-8 h-9 text-sm"
                                     />
                                 </div>
 
-                                <div className="flex gap-2 w-full lg:w-80">
+                                <div className="flex gap-1 flex-shrink-0">
                                     <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                                        <SelectTrigger className="h-10 flex-1">
-                                            <SelectValue placeholder={t('Walk-in Customer')} />
+                                        <SelectTrigger className="h-9 w-32 sm:w-44 text-xs">
+                                            <SelectValue placeholder={t('Walk-in')} />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent searchable>
                                             {customers.map(customer => (
                                                 <SelectItem key={customer.id} value={customer.id.toString()}>
-                                                    {customer.name} - {customer.email}
+                                                    {customer.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button 
-                                                    variant="outline" 
-                                                    className="h-10 px-3"
-                                                    onClick={() => setShowAddCustomerModal(true)}
-                                                >
-                                                    <UserPlus className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>{t('Add New Customer')}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 px-2.5 flex-shrink-0"
+                                        onClick={() => setShowAddCustomerModal(true)}
+                                    >
+                                        <UserPlus className="h-4 w-4" />
+                                    </Button>
                                 </div>
+                            </div>
 
+                            {/* Row 2: Branch + Location + SKU */}
+                            <div className="flex gap-1.5 items-center">
+                                {/* Branch selector */}
+                                <Select value={selectedBranch} onValueChange={(branch) => {
+                                    setSelectedBranch(branch);
+                                    const first = warehouses.find(w => w.address === branch);
+                                    if (first) {
+                                        setSelectedWarehouse(first.id.toString());
+                                        sessionStorage.setItem('pos_selected_warehouse', first.id.toString());
+                                    }
+                                }}>
+                                    <SelectTrigger className="h-9 flex-1 min-w-0 text-xs">
+                                        <SelectValue placeholder={t('Branch')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {branches.map(branch => (
+                                            <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Location selector */}
                                 <Select value={selectedWarehouse} onValueChange={(value) => {
                                     setSelectedWarehouse(value);
                                     sessionStorage.setItem('pos_selected_warehouse', value);
                                 }}>
-                                    <SelectTrigger className="h-10 w-full lg:w-96">
-                                        <SelectValue placeholder={t('Select Warehouse')} />
+                                    <SelectTrigger className="h-9 flex-1 min-w-0 text-xs">
+                                        <SelectValue placeholder={t('Location')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {warehouses.map(warehouse => (
+                                        {branchWarehouses.map(warehouse => (
                                             <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
-                                                {warehouse.name} - {warehouse.address}
+                                                {warehouse.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
 
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <div className="relative lg:w-72">
-                                                <Barcode className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    placeholder={t('Add To Cart by SKU')}
-                                                    className="pl-10 h-10"
-                                                    value={skuInput}
-                                                    onChange={(e) => handleSkuInput(e.target.value)}
-                                                />
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{t('Enter SKU to add product to cart.')}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <div className="relative flex-shrink-0 w-28 sm:w-36">
+                                    <Barcode className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        placeholder={t('SKU')}
+                                        className="pl-8 h-9 text-xs"
+                                        value={skuInput}
+                                        onChange={(e) => handleSkuInput(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 flex-nowrap" style={{ scrollbarWidth: 'none' }}>
                                 <Button
                                     variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="flex-shrink-0 h-7 text-xs px-3"
                                     onClick={() => {
                                         setSelectedCategory('all');
                                         setSelectedRoomType('all');
@@ -801,11 +823,12 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                 </Button>
                                 <Button
                                     variant={selectedCategory === 'rooms' ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="flex-shrink-0 h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 border-blue-200"
                                     onClick={() => {
                                         setSelectedCategory('rooms');
                                         setSelectedRoomType('all');
                                     }}
-                                    className="bg-blue-50 hover:bg-blue-100 border-blue-200"
                                 >
                                     🏨 {t('Accommodation')}
                                 </Button>
@@ -813,6 +836,8 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                     <Button
                                         key={category.id}
                                         variant={selectedCategory === category.id.toString() ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="flex-shrink-0 h-7 text-xs px-3"
                                         onClick={() => {
                                             setSelectedCategory(category.id.toString());
                                             setSelectedRoomType('all');
@@ -896,7 +921,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                 <p className="mt-2 text-gray-500">{t('Loading products...')}</p>
                             </div>
                         ) : filteredProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+                            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
                                 {filteredProducts.map(product => (
                                     <Card
                                         key={product.id}
@@ -904,7 +929,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                         style={product.is_room && product.room_type_color ? { borderColor: product.room_type_color } : {}}
                                         onClick={() => addToCart(product)}
                                     >
-                                        <CardContent className="p-4">
+                                        <CardContent className="p-2 sm:p-3">
                                             {/* Room Type Badge for Rooms */}
                                             {product.is_room && product.room_type_name && (
                                                 <div className="mb-2">
@@ -947,8 +972,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                 )}
                                             </div>
                                             
-                                            <h3 className="font-medium truncate">{product.name}</h3>
-                                            <p className="text-sm text-gray-500">{product.sku}</p>
+                                            <h3 className="font-medium truncate text-xs leading-tight">{product.name}</h3>
                                             
                                             {/* Room-specific info */}
                                             {product.is_room && product.max_occupancy && (
@@ -981,7 +1005,7 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                     </Card>
 
                     {/* Cart Sidebar Card */}
-                    <Card className="w-full lg:w-80 xl:w-96 flex flex-col flex-shrink-0 min-h-0 order-1 lg:order-2 max-h-[40vh] lg:max-h-none">
+                    <Card className={`w-full lg:w-80 xl:w-96 flex flex-col flex-shrink-0 min-h-0 order-1 lg:order-2 lg:max-h-none ${showMobileCart ? 'flex h-full fixed inset-0 z-40 rounded-none' : 'hidden lg:flex'}`}>
                         <CardContent className="p-3 sm:p-4 xl:p-6 border-b flex-shrink-0">
                             {bankAccountField.map((field) => (
                                 <div key={field.id}>{field.component}</div>
@@ -1001,6 +1025,9 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                             onClick={() => setCart([])}
                                         />
                                     )}
+                                    <button className="lg:hidden ml-1 p-2 rounded-lg bg-red-100 hover:bg-red-200 active:bg-red-300" onClick={() => setShowMobileCart(false)}>
+                                        <X className="h-6 w-6 text-red-600" />
+                                    </button>
                                 </div>
                             </div>
                         </CardContent>
@@ -1332,6 +1359,21 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                     </Card>
                 </div>
             </div>
+
+            {/* Mobile floating cart button */}
+            {!showMobileCart && (
+                <button
+                    onClick={() => setShowMobileCart(true)}
+                    className="lg:hidden fixed bottom-5 right-5 z-50 bg-blue-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-xl active:scale-95 transition-transform"
+                >
+                    <ShoppingCart className="h-6 w-6" />
+                    {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                            {cart.length > 9 ? '9+' : cart.length}
+                        </span>
+                    )}
+                </button>
+            )}
 
             {/* Payment Modal */}
             <Dialog open={showPaymentModal} onOpenChange={(open) => !processing && setShowPaymentModal(open)}>

@@ -15,6 +15,8 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:ProductService'])
         Route::get('/', [ProductServiceItemController::class, 'index'])->name('index');
         Route::get('/create', [ProductServiceItemController::class, 'create'])->name('create');
         Route::post('/', [ProductServiceItemController::class, 'store'])->name('store');
+        Route::post('/quick-add', [ProductServiceItemController::class, 'quickAdd'])->name('quick-add');
+        Route::get('/meta', [ProductServiceItemController::class, 'meta'])->name('meta');
         Route::get('/{item}', [ProductServiceItemController::class, 'show'])->name('show');
         Route::get('/{item}/edit', [ProductServiceItemController::class, 'edit'])->name('edit');
         Route::put('/{item}', [ProductServiceItemController::class, 'update'])->name('update');

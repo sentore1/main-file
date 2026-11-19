@@ -16,9 +16,11 @@ interface Props {
     products?: Array<{id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; taxes?: Array<{id: number; tax_name: string; rate: number}>}>;
     showAddButton?: boolean;
     invoiceType?: string;
+    onProductAdded?: (product: any) => void;
+    defaultWarehouseId?: string;
 }
 
-export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, invoiceType = 'product' }: Props) {
+export default function InvoiceItemsTable({ items, onChange, errors, products = [], showAddButton = true, invoiceType = 'product', onProductAdded, defaultWarehouseId = '' }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
@@ -143,6 +145,9 @@ export default function InvoiceItemsTable({ items, onChange, errors, products = 
                                         products={products}
                                         value={item.product_id}
                                         onChange={(productId, product) => handleProductSelect(index, productId, product)}
+                                        onProductAdded={onProductAdded}
+                                        defaultWarehouseId={defaultWarehouseId}
+                                        invoiceType={invoiceType}
                                     />
                                     <InputError message={errors[`items.${index}.product_id`]} />
                                 </td>

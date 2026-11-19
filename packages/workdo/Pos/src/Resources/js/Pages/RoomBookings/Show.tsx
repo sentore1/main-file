@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, LogIn, LogOut, XCircle, Calendar, User, Home as HomeIcon, DollarSign, Printer } from 'lucide-react';
+import { ArrowLeft, LogIn, LogOut, XCircle, Calendar, User, Home as HomeIcon, DollarSign, Printer, CreditCard } from 'lucide-react';
 import { useFavicon } from '@/hooks/use-favicon';
 import { BrandProvider } from '@/contexts/brand-context';
 import AuthenticatedLayout from '@/layouts/authenticated-layout';
@@ -70,9 +70,19 @@ interface PosInvoice {
 interface ShowProps {
     booking: Booking;
     posInvoices: PosInvoice[];
+    guestDetail?: {
+        id_type: string;
+        id_number: string | null;
+        nationality: string | null;
+        date_of_birth: string | null;
+        gender: string | null;
+        address: string | null;
+        emergency_contact_name: string | null;
+        emergency_contact_phone: string | null;
+    } | null;
 }
 
-function ShowContent({ booking, posInvoices }: ShowProps) {
+function ShowContent({ booking, posInvoices, guestDetail }: ShowProps) {
     const { t } = useTranslation();
     useFavicon();
 
@@ -361,19 +371,88 @@ function ShowContent({ booking, posInvoices }: ShowProps) {
                     <div className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>{t('Customer')}</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    {t('Customer')}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {booking.customer ? (
-                                    <div className="space-y-2">
+                                    <div className="space-y-1">
                                         <p className="font-semibold">{booking.customer.name}</p>
                                         <p className="text-sm text-gray-600">{booking.customer.email}</p>
+                                        {booking.customer.mobile_no && (
+                                            <p className="text-sm text-gray-600">{booking.customer.mobile_no}</p>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-gray-500">{t('Walk-in Customer')}</p>
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* Hotel Guest Details */}
+                        {guestDetail && (
+                            <Card className="border-blue-200">
+                                <CardHeader className="bg-blue-50 rounded-t-lg pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-blue-900 text-sm">
+                                        <CreditCard className="h-4 w-4" />
+                                        {t('Guest ID Details')}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-4 space-y-3">
+                                    {/* ID */}
+                                    {guestDetail.id_number && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500 capitalize">
+                                                {guestDetail.id_type?.replace('_', ' ') || t('ID')}
+                                            </span>
+                                            <span className="font-medium font-mono">{guestDetail.id_number}</span>
+                                        </div>
+                                    )}
+                                    {/* Nationality */}
+                                    {guestDetail.nationality && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">{t('Nationality')}</span>
+                                            <span className="font-medium">{guestDetail.nationality}</span>
+                                        </div>
+                                    )}
+                                    {/* Gender */}
+                                    {guestDetail.gender && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">{t('Gender')}</span>
+                                            <span className="font-medium capitalize">{guestDetail.gender}</span>
+                                        </div>
+                                    )}
+                                    {/* Date of Birth */}
+                                    {guestDetail.date_of_birth && (
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-500">{t('Date of Birth')}</span>
+                                            <span className="font-medium">{guestDetail.date_of_birth}</span>
+                                        </div>
+                                    )}
+                                    {/* Address */}
+                                    {guestDetail.address && (
+                                        <div className="text-sm">
+                                            <span className="text-gray-500 block">{t('Address')}</span>
+                                            <span className="font-medium">{guestDetail.address}</span>
+                                        </div>
+                                    )}
+                                    {/* Emergency Contact */}
+                                    {(guestDetail.emergency_contact_name || guestDetail.emergency_contact_phone) && (
+                                        <div className="pt-2 border-t">
+                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Emergency Contact')}</p>
+                                            {guestDetail.emergency_contact_name && (
+                                                <p className="text-sm font-medium">{guestDetail.emergency_contact_name}</p>
+                                            )}
+                                            {guestDetail.emergency_contact_phone && (
+                                                <p className="text-sm text-gray-600">{guestDetail.emergency_contact_phone}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Card>
                             <CardHeader>

@@ -172,6 +172,7 @@ class PosController extends Controller
 
             $warehouses = Warehouse::where('created_by', creatorId())
                 ->where('is_active', true)
+                ->whereIn('id', getUserWarehouseIds())
                 ->select('id', 'name', 'address')
                 ->get();
 

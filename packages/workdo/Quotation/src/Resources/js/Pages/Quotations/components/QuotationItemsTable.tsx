@@ -16,9 +16,11 @@ interface Props {
     products?: Array<{id: number; name: string; sale_price: number; unit?: string; stock_quantity?: number; item_type?: string; taxes?: Array<{id: number; tax_name: string; rate: number}>}>;
     showAddButton?: boolean;
     quotationType?: 'product' | 'service';
+    onProductAdded?: (product: any) => void;
+    defaultWarehouseId?: string;
 }
 
-export default function QuotationItemsTable({ items, onChange, errors, products = [], showAddButton = true, quotationType = 'product' }: Props) {
+export default function QuotationItemsTable({ items, onChange, errors, products = [], showAddButton = true, quotationType = 'product', onProductAdded, defaultWarehouseId = '' }: Props) {
     const { t } = useTranslation();
 
     const addItem = () => {
@@ -141,6 +143,9 @@ export default function QuotationItemsTable({ items, onChange, errors, products 
                                         products={products}
                                         value={item.product_id}
                                         onChange={(productId, product) => handleProductSelect(index, productId, product)}
+                                        itemTypeFilter={quotationType === 'service' ? 'service' : 'product'}
+                                        onProductAdded={onProductAdded}
+                                        defaultWarehouseId={defaultWarehouseId}
                                     />
                                     <InputError message={errors[`items.${index}.product_id`]} />
                                 </td>

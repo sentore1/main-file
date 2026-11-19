@@ -127,6 +127,102 @@ class ProductServiceItemController extends Controller
         return redirect()->route('product-service.items.index')->with('error', __('Permission denied'));
     }
 
+    /**
+     * Return taxes, categories and units for the quick-add modal.
+     * GET /product-service/items/meta
+     */
+    public function meta()
+    {
+        if (!Auth::user()->can('create-product-service-item')) {
+            return response()->json(['error' => 'Permission denied'], 403);
+        }
+
+        return response()->json([
+            'taxes'      => ProductServiceTax::where('created_by', creatorId())->get(['id', 'tax_name', 'rate']),
+            'categories' => ProductServiceCategory::where('created_by', creatorId())->get(['id', 'name']),
+            'units'      => ProductServiceUnit::where('created_by', creatorId())->get(['id', 'unit_name']),
+            'warehouses' => Warehouse::where('is_active', true)->where('created_by', creatorId())->get(['id', 'name']),
+        ]);
+    }
+
+    /**
+     * Minimal quick-create a product/service from an inline modal.
+     * POST /product-service/items/quick-add  →  returns JSON with new item
+     */
+    public function quickAdd(Request $request)
+    {
+        if (!Auth::user()->can('create-product-service-item')) {
+            return response()->json(['error' => 'Permission denied'], 403);
+        }
+
+        $data = $request->validate([
+            'name'             => 'required|string|max:255',
+            'type'             => 'required|in:product,service',
+            'sale_price'       => 'required|numeric|min:0',
+            'purchase_price'   => 'required|numeric|min:0',
+            'category_id'      => 'nullable|exists:product_service_categories,id',
+            'unit'             => 'nullable|string|max:50',
+            'tax_ids'          => 'nullable|array',
+            'tax_ids.*'        => 'integer|exists:product_service_taxes,id',
+            'warehouse_id'     => 'nullable|exists:warehouses,id',
+            'quantity'         => 'nullable|integer|min:0',
+        ]);
+
+        // Auto-generate SKU
+        $sku = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $data['name']), 0, 6))
+             . '-' . strtoupper(substr(md5(microtime()), 0, 4));
+
+        $item = new ProductServiceItem();
+        $item->name           = $data['name'];
+        $item->sku            = $sku;
+        $item->type           = $data['type'];
+        $item->sale_price     = $data['sale_price'];
+        $item->purchase_price = $data['purchase_price'];
+        $item->category_id    = $data['category_id'] ?? null;
+        $item->unit           = $data['unit'] ?? null;
+        $item->tax_ids        = !empty($data['tax_ids']) ? array_map('intval', $data['tax_ids']) : null;
+        $item->is_active      = true;
+        $item->creator_id     = Auth::id();
+        $item->created_by     = creatorId();
+        $item->save();
+
+        // Create stock entry for products
+        if ($item->type === 'product' && !empty($data['warehouse_id'])) {
+            WarehouseStock::create([
+                'product_id'   => $item->id,
+                'warehouse_id' => $data['warehouse_id'],
+                'quantity'     => $data['quantity'] ?? 0,
+            ]);
+        }
+
+        // Load taxes for response
+        $taxes = [];
+        if ($item->tax_ids) {
+            $taxes = ProductServiceTax::whereIn('id', $item->tax_ids)
+                ->where('created_by', creatorId())
+                ->get(['id', 'tax_name', 'rate'])
+                ->toArray();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Product created successfully.'),
+            'item'    => [
+                'id'             => $item->id,
+                'name'           => $item->name,
+                'sku'            => $item->sku,
+                'type'           => $item->type,
+                'sale_price'     => (float) $item->sale_price,
+                'purchase_price' => (float) $item->purchase_price,
+                'unit'           => $item->unit,
+                'taxes'          => $taxes,
+                // For sales/quotation selector compatibility
+                'item_type'      => $item->type,
+                'stock_quantity' => $data['quantity'] ?? 0,
+            ],
+        ]);
+    }
+
     public function show(ProductServiceItem $item)
     {
         if(Auth::user()->can('view-product-service-item')){

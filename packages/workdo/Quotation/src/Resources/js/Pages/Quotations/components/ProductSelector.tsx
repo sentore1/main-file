@@ -1,7 +1,10 @@
-import React from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/utils/helpers';
+import { Plus } from 'lucide-react';
+import QuickAddProductModal from '@/components/QuickAddProductModal';
 
 interface Product {
     id: number;
@@ -10,6 +13,7 @@ interface Product {
     unit?: string;
     type?: string;
     item_type?: string;
+    stock_quantity?: number;
     taxes?: Array<{id: number; tax_name: string; rate: number}>;
 }
 
@@ -18,10 +22,20 @@ interface Props {
     value: number;
     onChange: (productId: number, product?: Product) => void;
     itemTypeFilter?: 'all' | 'product' | 'service' | 'room';
+    onProductAdded?: (product: Product) => void;
+    defaultWarehouseId?: string;
 }
 
-export default function ProductSelector({ products, value, onChange, itemTypeFilter = 'all' }: Props) {
+export default function ProductSelector({
+    products,
+    value,
+    onChange,
+    itemTypeFilter = 'all',
+    onProductAdded,
+    defaultWarehouseId = '',
+}: Props) {
     const { t } = useTranslation();
+    const [showModal, setShowModal] = useState(false);
 
     const handleChange = (productId: string) => {
         const id = parseInt(productId);
@@ -29,40 +43,73 @@ export default function ProductSelector({ products, value, onChange, itemTypeFil
         onChange(id, product);
     };
 
-    // Filter products based on selected item type
-    const filteredProducts = itemTypeFilter === 'all' 
-        ? products 
+    const handleCreated = (item: any) => {
+        const newProduct: Product = {
+            id:             item.id,
+            name:           item.name,
+            sale_price:     item.sale_price,
+            unit:           item.unit,
+            type:           item.type,
+            item_type:      item.item_type,
+            stock_quantity: item.stock_quantity ?? 0,
+            taxes:          item.taxes,
+        };
+        onProductAdded?.(newProduct);
+        onChange(newProduct.id, newProduct);
+    };
+
+    const filteredProducts = itemTypeFilter === 'all'
+        ? products
         : products.filter(p => {
-            if (itemTypeFilter === 'product') {
-                return !p.item_type || p.item_type === 'product';
-            }
+            if (itemTypeFilter === 'product') return !p.item_type || p.item_type === 'product';
             return p.item_type === itemTypeFilter;
         });
 
-    // Debug logging
-    console.log('ProductSelector - Filter:', itemTypeFilter);
-    console.log('ProductSelector - Total products:', products.length);
-    console.log('ProductSelector - Filtered products:', filteredProducts.length);
-    console.log('ProductSelector - Sample product:', products[0]);
+    // The modal default type mirrors the filter: service filter → service, else product
+    const modalDefaultType: 'product' | 'service' =
+        itemTypeFilter === 'service' ? 'service' : 'product';
 
     return (
-        <Select value={value.toString()} onValueChange={handleChange}>
-            <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('Select Item')} />
-            </SelectTrigger>
-            <SelectContent searchable>
-                {filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => (
-                        <SelectItem key={product.id} value={product.id.toString()}>
-                            {product.name} - {formatCurrency(product.sale_price || 0)}
-                        </SelectItem>
-                    ))
-                ) : (
-                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                        {t('No items available for')} {itemTypeFilter}
-                    </div>
-                )}
-            </SelectContent>
-        </Select>
+        <div className="flex gap-1.5 items-center w-full">
+            <div className="flex-1 min-w-0">
+                <Select value={value.toString()} onValueChange={handleChange}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('Select Item')} />
+                    </SelectTrigger>
+                    <SelectContent searchable>
+                        {filteredProducts.length > 0 ? (
+                            filteredProducts.map((product) => (
+                                <SelectItem key={product.id} value={product.id.toString()}>
+                                    {product.name} - {formatCurrency(product.sale_price || 0)}
+                                </SelectItem>
+                            ))
+                        ) : (
+                            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                {t('No items available')}
+                            </div>
+                        )}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 flex-shrink-0 text-primary border-primary hover:bg-primary hover:text-primary-foreground"
+                onClick={() => setShowModal(true)}
+                title={t('Quick add new product / service')}
+            >
+                <Plus className="h-4 w-4" />
+            </Button>
+
+            <QuickAddProductModal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                onCreated={handleCreated}
+                defaultType={modalDefaultType}
+                defaultWarehouseId={defaultWarehouseId}
+            />
+        </div>
     );
 }

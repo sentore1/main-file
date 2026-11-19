@@ -678,6 +678,12 @@ class RoomBookingController extends Controller
                 'revenue'
             ]);
 
+            // Load hotel guest details if the customer has them
+            $guestDetail = null;
+            if ($roomBooking->customer_id) {
+                $guestDetail = \Workdo\Pos\Models\PosGuestDetail::where('user_id', $roomBooking->customer_id)->first();
+            }
+
             // Get all POS sales linked to this room booking
             $posInvoices = \Workdo\Pos\Models\Pos::with(['items.product', 'payment'])
                 ->where('room_booking_id', $roomBooking->id)
@@ -731,8 +737,9 @@ class RoomBookingController extends Controller
             ]);
 
             return Inertia::render('Pos/RoomBookings/Show', [
-                'booking' => $roomBooking,
+                'booking'     => $roomBooking,
                 'posInvoices' => $posInvoices,
+                'guestDetail' => $guestDetail,
             ]);
         }
 

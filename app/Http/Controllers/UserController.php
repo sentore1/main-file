@@ -18,6 +18,7 @@ use App\Imports\UserImport;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Models\Warehouse;
 
 class UserController extends Controller
 {
@@ -47,9 +48,46 @@ class UserController extends Controller
 
             $roles = Role::where('created_by', creatorId())->pluck('label', 'id');
 
+            // All warehouses for this company (for the warehouse assignment panel)
+            $warehouses = Warehouse::where('created_by', creatorId())
+                ->where('is_active', true)
+                ->orderBy('address')
+                ->orderBy('name')
+                ->get(['id', 'name', 'address']);
+
+            // Attach warehouse_ids to each user
+            $userIds = $users->pluck('id');
+            $userWarehouseMap = \DB::table('user_warehouse')
+                ->whereIn('user_id', $userIds)
+                ->get(['user_id', 'warehouse_id'])
+                ->groupBy('user_id')
+                ->map(fn($rows) => $rows->pluck('warehouse_id')->toArray());
+
+            // Attach guest_detail to each user (if they are hotel guests)
+            $guestDetailMap = \Workdo\Pos\Models\PosGuestDetail::whereIn('user_id', $userIds)
+                ->get()
+                ->keyBy('user_id');
+
+            $users->getCollection()->transform(function ($user) use ($userWarehouseMap, $guestDetailMap) {
+                $user->warehouse_ids = $userWarehouseMap->get($user->id, []);
+                $gd = $guestDetailMap->get($user->id);
+                $user->guest_detail = $gd ? [
+                    'id_type'                 => $gd->id_type,
+                    'id_number'               => $gd->id_number,
+                    'nationality'             => $gd->nationality,
+                    'date_of_birth'           => $gd->date_of_birth?->format('Y-m-d'),
+                    'gender'                  => $gd->gender,
+                    'address'                 => $gd->address,
+                    'emergency_contact_name'  => $gd->emergency_contact_name,
+                    'emergency_contact_phone' => $gd->emergency_contact_phone,
+                ] : null;
+                return $user;
+            });
+
             return Inertia::render('users/index', [
-                'users' => $users,
-                'roles' => $roles,
+                'users'      => $users,
+                'roles'      => $roles,
+                'warehouses' => $warehouses,
             ]);
         }
         else{
@@ -303,5 +341,38 @@ class UserController extends Controller
         else{
             return back()->with('error', __('Permission denied'));
         }
+    }
+
+    /**
+     * Sync warehouse assignments for a user.
+     * Called via POST /users/{user}/warehouses
+     */
+    public function assignWarehouses(Request $request, User $user)
+    {
+        if (!Auth::user()->can('edit-users')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        // Only allow editing users that belong to this company
+        if ($user->created_by !== creatorId()) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'warehouse_ids'   => 'nullable|array',
+            'warehouse_ids.*' => 'integer|exists:warehouses,id',
+        ]);
+
+        $ids = $request->input('warehouse_ids', []);
+
+        // Sync the pivot table
+        \DB::table('user_warehouse')->where('user_id', $user->id)->delete();
+
+        if (!empty($ids)) {
+            $rows = array_map(fn($wid) => ['user_id' => $user->id, 'warehouse_id' => $wid], $ids);
+            \DB::table('user_warehouse')->insert($rows);
+        }
+
+        return back()->with('success', __('Branch access updated for :name', ['name' => $user->name]));
     }
 }

@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('users/login/history', [UserController::class, 'loginHistory'])->name('users.login-history');
     Route::get('users/import/template', [UserController::class, 'downloadTemplate'])->name('users.import.template');
     Route::post('users/import/upload', [UserController::class, 'import'])->name('users.import');
+    Route::post('users/{user}/warehouses', [UserController::class, 'assignWarehouses'])->name('users.warehouses');
     Route::resource('warehouses', WarehouseController::class);
     Route::resource('transfers', TransferController::class)->except(['edit', 'update']);
     Route::get('transfers/export/csv', [TransferController::class, 'export'])->name('transfers.export');

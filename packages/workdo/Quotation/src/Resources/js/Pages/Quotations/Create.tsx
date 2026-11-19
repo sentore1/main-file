@@ -26,8 +26,8 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { customers, warehouses } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
-    const [availableServices, setAvailableServices] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+    const [availableServices, setAvailableServices] = useState<any[]>([]);
 
     const { data, setData, errors } = useForm({
         invoice_date: new Date().toISOString().split('T')[0],
@@ -316,6 +316,9 @@ export default function Create() {
                                 errors={errors}
                                 products={availableProducts}
                                 showAddButton={false}
+                                quotationType="product"
+                                onProductAdded={(p) => setAvailableProducts((prev: any) => [...prev, p])}
+                                defaultWarehouseId={data.warehouse_id}
                             />
                         </CardContent>
                     </Card>
@@ -358,6 +361,9 @@ export default function Create() {
                                 errors={errors}
                                 products={availableServices}
                                 showAddButton={false}
+                                quotationType="service"
+                                onProductAdded={(p) => setAvailableServices((prev: any) => [...prev, p])}
+                                defaultWarehouseId={data.warehouse_id}
                             />
 
                             <div className="mt-6 flex justify-end">
