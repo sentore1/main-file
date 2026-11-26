@@ -593,16 +593,32 @@ class ProductServiceItemController extends Controller
         ]);
 
         // Decode conflict resolutions sent from the frontend modal
+        // Keyed by existing_id (stable DB ID) rather than CSV row number
         $resolutions = [];
-        if ($request->filled('conflict_resolutions')) {
-            $decoded = json_decode($request->conflict_resolutions, true);
+        $rawResolutions = $request->input('conflict_resolutions');
+        
+        \Log::info('BulkImport called', [
+            'has_file' => $request->hasFile('file'),
+            'has_resolutions' => !empty($rawResolutions),
+            'resolutions_length' => strlen($rawResolutions ?? ''),
+            'resolutions_preview' => substr($rawResolutions ?? '', 0, 300),
+            'all_keys' => array_keys($request->all()),
+        ]);
+        
+        if ($rawResolutions) {
+            $decoded = json_decode($rawResolutions, true);
             if (is_array($decoded)) {
                 foreach ($decoded as $res) {
-                    if (isset($res['row'], $res['resolution'])) {
-                        $resolutions[$res['row']] = $res; // keyed by CSV row number
+                    if (isset($res['existing_id'], $res['resolution'])) {
+                        $resolutions[(int)$res['existing_id']] = $res;
                     }
                 }
             }
+            \Log::info('BulkImport resolutions decoded', [
+                'count' => count($resolutions),
+                'ids' => array_keys($resolutions),
+                'first' => !empty($resolutions) ? reset($resolutions) : null,
+            ]);
         }
 
         $raw = file_get_contents($request->file('file')->getRealPath());
@@ -671,30 +687,79 @@ class ProductServiceItemController extends Controller
                 'category_id'    => $categoryId,
             ];
 
-            // Check if this row has a conflict resolution decision
-            if (isset($resolutions[$rowNum])) {
-                $res = $resolutions[$rowNum];
+            // Find if this row has an existing duplicate (by SKU or name)
+            $existingRecord = null;
+            if (!empty($data['sku'])) {
+                $existingRecord = ProductServiceItem::where('created_by', creatorId())
+                    ->where('sku', $sku)->first();
+            }
+            if (!$existingRecord) {
+                $existingRecord = ProductServiceItem::where('created_by', creatorId())
+                    ->where('name', $data['name'])->first();
+            }
+
+            \Log::info('BulkImport row check', [
+                'row' => $rowNum,
+                'name' => $data['name'],
+                'existing_id' => $existingRecord?->id,
+                'has_resolution' => $existingRecord ? isset($resolutions[$existingRecord->id]) : false,
+                'available_resolution_ids' => array_keys($resolutions),
+            ]);
+
+            // Check if this duplicate has a conflict resolution decision from the modal
+            if ($existingRecord && isset($resolutions[$existingRecord->id])) {
+                $res = $resolutions[$existingRecord->id];
+
+                \Log::info('BulkImport resolution matched', [
+                    'name' => $data['name'],
+                    'existing_id' => $existingRecord->id,
+                    'resolution' => $res['resolution'],
+                ]);
+
                 if ($res['resolution'] === 'skip') {
                     $skipped++;
                     continue;
                 }
-                if ($res['resolution'] === 'update' && !empty($res['existing_id'])) {
+                if ($res['resolution'] === 'update') {
                     try {
-                        $existing = ProductServiceItem::where('id', $res['existing_id'])
-                            ->where('created_by', creatorId())->first();
-                        if ($existing) {
-                            $existing->fill($payload)->save();
+                        // Apply override values from modal edits if provided, else use CSV values
+                        $overrideSalePrice     = isset($res['override_sale_price'])     && $res['override_sale_price']     !== null && $res['override_sale_price']     !== '' ? (float) $res['override_sale_price']     : $payload['sale_price'];
+                        $overridePurchasePrice = isset($res['override_purchase_price']) && $res['override_purchase_price'] !== null && $res['override_purchase_price'] !== '' ? (float) $res['override_purchase_price'] : $payload['purchase_price'];
+                        $overrideType          = !empty($res['override_type']) && in_array($res['override_type'], ['product', 'service', 'part']) ? $res['override_type'] : $payload['type'];
+                        $overrideUnit          = isset($res['override_unit']) && $res['override_unit'] !== null && $res['override_unit'] !== '' ? $res['override_unit'] : $payload['unit'];
 
-                            // Also update warehouse stock if warehouse_id + quantity are in the CSV
-                            if (!empty($data['warehouse_id']) && isset($data['quantity']) && $data['quantity'] !== '') {
-                                WarehouseStock::updateOrCreate(
-                                    ['product_id' => $existing->id, 'warehouse_id' => (int) $data['warehouse_id']],
-                                    ['quantity' => (float) $data['quantity']]
-                                );
-                            }
-
-                            $updated++;
+                        // Category: use modal-selected category name override if set
+                        $overrideCategoryId = $payload['category_id'];
+                        if (!empty($res['override_category_name'])) {
+                            $overrideCat = ProductServiceCategory::where('created_by', creatorId())
+                                ->where('name', $res['override_category_name'])->first();
+                            $overrideCategoryId = $overrideCat?->id ?? $payload['category_id'];
                         }
+
+                        $existingRecord->fill(array_merge($payload, [
+                            'sale_price'     => $overrideSalePrice,
+                            'purchase_price' => $overridePurchasePrice,
+                            'category_id'    => $overrideCategoryId,
+                            'type'           => $overrideType,
+                            'unit'           => $overrideUnit,
+                        ]))->save();
+
+                        // Quantity: use modal override, then CSV value, then skip stock update
+                        $qtyToApply = null;
+                        if (isset($res['override_quantity']) && $res['override_quantity'] !== null && $res['override_quantity'] !== '') {
+                            $qtyToApply = (float) $res['override_quantity'];
+                        } elseif (isset($data['quantity']) && $data['quantity'] !== '') {
+                            $qtyToApply = (float) $data['quantity'];
+                        }
+
+                        if ($qtyToApply !== null && !empty($data['warehouse_id'])) {
+                            WarehouseStock::updateOrCreate(
+                                ['product_id' => $existingRecord->id, 'warehouse_id' => (int) $data['warehouse_id']],
+                                ['quantity' => $qtyToApply]
+                            );
+                        }
+
+                        $updated++;
                     } catch (\Exception $e) {
                         $rowErrors[] = "Row {$rowNum} ({$data['name']}): " . $e->getMessage();
                         $skipped++;
@@ -703,13 +768,8 @@ class ProductServiceItemController extends Controller
                 }
             }
 
-            // No resolution provided — check for duplicate on-the-fly and skip to be safe
-            $duplicate = ProductServiceItem::where('created_by', creatorId())
-                ->where(function ($q) use ($data, $sku) {
-                    $q->where('sku', $sku)->orWhere('name', $data['name']);
-                })->exists();
-
-            if ($duplicate) {
+            // No resolution provided but duplicate exists — skip to be safe
+            if ($existingRecord) {
                 $skipped++;
                 continue;
             }
@@ -739,6 +799,18 @@ class ProductServiceItemController extends Controller
         }
 
         $flashKey = ($skipped > 0 || !empty($rowErrors)) ? 'warning' : 'success';
+
+        // If the request expects JSON (fetch-based call from modal), return JSON
+        if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json([
+                'flash' => [$flashKey => $message],
+                'message' => $message,
+                'imported' => $imported,
+                'updated' => $updated,
+                'skipped' => $skipped,
+            ]);
+        }
+
         return back()->with($flashKey, $message);
     }
 }
