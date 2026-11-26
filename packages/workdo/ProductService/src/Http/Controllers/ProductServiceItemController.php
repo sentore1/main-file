@@ -453,4 +453,292 @@ class ProductServiceItemController extends Controller
         }
         return back()->with('error', __('Permission denied'));
     }
+
+    /**
+     * Download a CSV template for bulk product import.
+     * GET /product-service/items/import-template
+     */
+    public function downloadTemplate()
+    {
+        if (!Auth::user()->can('create-product-service-item')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $headers = ['name', 'sku', 'type', 'sale_price', 'purchase_price', 'description', 'unit', 'category_name'];
+        $sample  = ['Example Product', 'SKU-001', 'product', '100.00', '80.00', 'A sample product description', 'pcs', 'General'];
+
+        return response()->streamDownload(function () use ($headers, $sample) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            fputcsv($out, $sample);
+            fclose($out);
+        }, 'items_import_template_' . date('Y-m-d') . '.csv', [
+            'Content-Type'        => 'text/csv',
+            'Content-Disposition' => 'attachment',
+        ]);
+    }
+
+    /**
+     * Parse a CSV, detect duplicates, and return them to the frontend without writing anything.
+     * POST /product-service/items/preview-import
+     */
+    public function previewImport(Request $request)
+    {
+        if (!Auth::user()->can('create-product-service-item')) {
+            return response()->json(['error' => __('Permission denied')], 403);
+        }
+
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $raw = file_get_contents($request->file('file')->getRealPath());
+
+        if (substr($raw, 0, 3) === "\xEF\xBB\xBF") $raw = substr($raw, 3);
+        if (!mb_check_encoding($raw, 'UTF-8')) $raw = mb_convert_encoding($raw, 'UTF-8', 'Windows-1252');
+
+        $tmp = tmpfile();
+        fwrite($tmp, $raw);
+        rewind($tmp);
+
+        $headers = array_map('trim', fgetcsv($tmp));
+        $required = ['name', 'type', 'sale_price', 'purchase_price'];
+        $missing  = array_diff($required, $headers);
+
+        if (!empty($missing)) {
+            fclose($tmp);
+            return response()->json([
+                'error' => __('CSV is missing required columns: ') . implode(', ', $missing),
+            ], 422);
+        }
+
+        $rows      = [];
+        $conflicts = [];
+        $rowNum    = 1;
+
+        while (($row = fgetcsv($tmp)) !== false) {
+            $rowNum++;
+            if (count($row) < count($headers)) continue;
+            $data = array_map('trim', array_combine($headers, $row));
+            if (empty($data['name'])) continue;
+
+            // Detect duplicate: match by SKU (if provided) or by name
+            $existing = null;
+            if (!empty($data['sku'])) {
+                $existing = ProductServiceItem::where('created_by', creatorId())
+                    ->where('sku', $data['sku'])
+                    ->with(['category:id,name', 'warehouseStocks:product_id,quantity'])
+                    ->first(['id', 'name', 'sku', 'sale_price', 'purchase_price', 'type', 'unit', 'category_id']);
+            }
+            if (!$existing) {
+                $existing = ProductServiceItem::where('created_by', creatorId())
+                    ->where('name', $data['name'])
+                    ->with(['category:id,name', 'warehouseStocks:product_id,quantity'])
+                    ->first(['id', 'name', 'sku', 'sale_price', 'purchase_price', 'type', 'unit', 'category_id']);
+            }
+
+            $rowData = [
+                'row'            => $rowNum,
+                'name'           => $data['name'],
+                'sku'            => $data['sku'] ?? '',
+                'type'           => $data['type'],
+                'sale_price'     => $data['sale_price'],
+                'purchase_price' => $data['purchase_price'],
+                'description'    => $data['description'] ?? '',
+                'unit'           => $data['unit'] ?? '',
+                'category_name'  => $data['category_name'] ?? '',
+                'quantity'       => $data['quantity'] ?? '',
+                'warehouse_id'   => $data['warehouse_id'] ?? '',
+            ];
+
+            if ($existing) {
+                $conflicts[] = array_merge($rowData, [
+                    'existing_id'       => $existing->id,
+                    'existing_name'     => $existing->name,
+                    'existing_sku'      => $existing->sku,
+                    'existing_sale'     => $existing->sale_price,
+                    'existing_purchase' => $existing->purchase_price,
+                    'existing_unit'     => $existing->unit ?? '',
+                    'existing_category' => $existing->category?->name ?? '',
+                    'existing_quantity' => $existing->warehouseStocks?->sum('quantity') ?? 0,
+                    'resolution'        => 'skip',
+                ]);
+            } else {
+                $rows[] = $rowData;
+            }
+        }
+
+        fclose($tmp);
+
+        return response()->json([
+            'new_rows'   => $rows,
+            'conflicts'  => $conflicts,
+        ]);
+    }
+
+    /**
+     * Bulk-import products from a CSV file.
+     * POST /product-service/items/bulk-import
+     * Accepts optional conflict_resolutions: [{ row, existing_id, resolution: 'skip'|'update' }]
+     */
+    public function bulkImport(Request $request)
+    {
+        if (!Auth::user()->can('create-product-service-item')) {
+            return back()->with('error', __('Permission denied'));
+        }
+
+        $request->validate([
+            'file'                   => 'required|file|mimes:csv,txt|max:10240',
+            'conflict_resolutions'   => 'nullable|string', // JSON-encoded array
+        ]);
+
+        // Decode conflict resolutions sent from the frontend modal
+        $resolutions = [];
+        if ($request->filled('conflict_resolutions')) {
+            $decoded = json_decode($request->conflict_resolutions, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $res) {
+                    if (isset($res['row'], $res['resolution'])) {
+                        $resolutions[$res['row']] = $res; // keyed by CSV row number
+                    }
+                }
+            }
+        }
+
+        $raw = file_get_contents($request->file('file')->getRealPath());
+
+        if (substr($raw, 0, 3) === "\xEF\xBB\xBF") $raw = substr($raw, 3);
+        if (!mb_check_encoding($raw, 'UTF-8')) $raw = mb_convert_encoding($raw, 'UTF-8', 'Windows-1252');
+
+        $tmp = tmpfile();
+        fwrite($tmp, $raw);
+        rewind($tmp);
+
+        $headers = array_map('trim', fgetcsv($tmp));
+        $required = ['name', 'type', 'sale_price', 'purchase_price'];
+        $missing  = array_diff($required, $headers);
+        if (!empty($missing)) {
+            fclose($tmp);
+            return back()->with('error', __('CSV is missing required columns: ') . implode(', ', $missing));
+        }
+
+        $imported  = 0;
+        $updated   = 0;
+        $skipped   = 0;
+        $rowErrors = [];
+        $rowNum    = 1;
+
+        while (($row = fgetcsv($tmp)) !== false) {
+            $rowNum++;
+            if (count($row) < count($headers)) continue;
+
+            $data = array_map('trim', array_combine($headers, $row));
+            if (empty($data['name'])) { $skipped++; continue; }
+
+            $validator = \Illuminate\Support\Facades\Validator::make($data, [
+                'name'           => 'required|string|max:255',
+                'type'           => 'required|in:product,service,part',
+                'sale_price'     => 'required|numeric|min:0',
+                'purchase_price' => 'required|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                $rowErrors[] = "Row {$rowNum}: " . implode(', ', $validator->errors()->all());
+                $skipped++;
+                continue;
+            }
+
+            // Resolve category
+            $categoryId = null;
+            if (!empty($data['category_name'])) {
+                $cat = ProductServiceCategory::where('created_by', creatorId())
+                    ->where('name', $data['category_name'])->first();
+                $categoryId = $cat?->id;
+            }
+
+            $sku = !empty($data['sku']) ? $data['sku']
+                : strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $data['name']), 0, 6))
+                  . '-' . strtoupper(substr(md5(microtime(true) . $rowNum), 0, 4));
+
+            $payload = [
+                'name'           => $data['name'],
+                'sku'            => $sku,
+                'type'           => $data['type'],
+                'sale_price'     => (float) $data['sale_price'],
+                'purchase_price' => (float) $data['purchase_price'],
+                'description'    => $data['description'] ?? null,
+                'unit'           => !empty($data['unit']) ? $data['unit'] : null,
+                'category_id'    => $categoryId,
+            ];
+
+            // Check if this row has a conflict resolution decision
+            if (isset($resolutions[$rowNum])) {
+                $res = $resolutions[$rowNum];
+                if ($res['resolution'] === 'skip') {
+                    $skipped++;
+                    continue;
+                }
+                if ($res['resolution'] === 'update' && !empty($res['existing_id'])) {
+                    try {
+                        $existing = ProductServiceItem::where('id', $res['existing_id'])
+                            ->where('created_by', creatorId())->first();
+                        if ($existing) {
+                            $existing->fill($payload)->save();
+
+                            // Also update warehouse stock if warehouse_id + quantity are in the CSV
+                            if (!empty($data['warehouse_id']) && isset($data['quantity']) && $data['quantity'] !== '') {
+                                WarehouseStock::updateOrCreate(
+                                    ['product_id' => $existing->id, 'warehouse_id' => (int) $data['warehouse_id']],
+                                    ['quantity' => (float) $data['quantity']]
+                                );
+                            }
+
+                            $updated++;
+                        }
+                    } catch (\Exception $e) {
+                        $rowErrors[] = "Row {$rowNum} ({$data['name']}): " . $e->getMessage();
+                        $skipped++;
+                    }
+                    continue;
+                }
+            }
+
+            // No resolution provided — check for duplicate on-the-fly and skip to be safe
+            $duplicate = ProductServiceItem::where('created_by', creatorId())
+                ->where(function ($q) use ($data, $sku) {
+                    $q->where('sku', $sku)->orWhere('name', $data['name']);
+                })->exists();
+
+            if ($duplicate) {
+                $skipped++;
+                continue;
+            }
+
+            try {
+                ProductServiceItem::create(array_merge($payload, [
+                    'is_active'  => true,
+                    'creator_id' => Auth::id(),
+                    'created_by' => creatorId(),
+                ]));
+                $imported++;
+            } catch (\Exception $e) {
+                $rowErrors[] = "Row {$rowNum} ({$data['name']}): " . $e->getMessage();
+                $skipped++;
+            }
+        }
+
+        fclose($tmp);
+
+        $parts = [];
+        if ($imported > 0) $parts[] = "{$imported} item(s) imported";
+        if ($updated  > 0) $parts[] = "{$updated} item(s) updated";
+        if ($skipped  > 0) $parts[] = "{$skipped} row(s) skipped";
+        $message = implode(', ', $parts) . '.';
+        if (!empty($rowErrors)) {
+            $message .= ' Errors: ' . implode(' | ', array_slice($rowErrors, 0, 5));
+        }
+
+        $flashKey = ($skipped > 0 || !empty($rowErrors)) ? 'warning' : 'success';
+        return back()->with($flashKey, $message);
+    }
 }

@@ -11,6 +11,7 @@ import { InputError } from '@/components/ui/input-error';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Package, Plus, Trash } from 'lucide-react';
+import QuickAddProductModal from '@/components/QuickAddProductModal';
 
 interface CreateProps {
     warehouses: Array<{id: number; name: string; address: string}>;
@@ -19,7 +20,8 @@ interface CreateProps {
 export default function Create() {
     const { t } = useTranslation();
     const { warehouses } = usePage<CreateProps>().props;
-    const [availableProducts, setAvailableProducts] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+    const [quickAddIndex, setQuickAddIndex] = useState<number | null>(null);
 
     const { data, setData, post, processing, errors } = useForm({
         requisition_date: new Date().toISOString().split('T')[0],
@@ -89,6 +91,25 @@ export default function Create() {
         const newItems = [...data.items];
         newItems[index] = { ...newItems[index], [field]: value };
         setData('items', newItems);
+    };
+
+    const handleProductAdded = (newProduct: any) => {
+        // Normalise to the same shape returned by getWarehouseProducts()
+        const shaped = {
+            id:             newProduct.id,
+            name:           newProduct.name,
+            sku:            newProduct.sku ?? '',
+            unit:           newProduct.unit ?? '',
+            type:           newProduct.type ?? 'product',
+            stock_quantity: newProduct.stock_quantity ?? 0,
+        };
+        setAvailableProducts(prev => [...prev, shaped]);
+
+        // Auto-select the new product in the row that opened the modal
+        if (quickAddIndex !== null) {
+            updateItem(quickAddIndex, 'product_id', shaped.id);
+        }
+        setQuickAddIndex(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -239,21 +260,38 @@ export default function Create() {
                                     <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                                         <div>
                                             <Label required>{t('Product')}</Label>
-                                            <Select
-                                                value={item.product_id.toString()}
-                                                onValueChange={(value) => updateItem(index, 'product_id', parseInt(value))}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('Select Product')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {availableProducts.map((product: any) => (
-                                                        <SelectItem key={product.id} value={product.id.toString()}>
-                                                            {product.name} ({product.sku}) - Stock: {product.stock_quantity}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="flex gap-1.5 items-center">
+                                                <div className="flex-1 min-w-0">
+                                                    <Select
+                                                        value={item.product_id ? item.product_id.toString() : ''}
+                                                        onValueChange={(value) => updateItem(index, 'product_id', parseInt(value))}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={t('Select Product')} />
+                                                        </SelectTrigger>
+                                                        <SelectContent searchable>
+                                                            {availableProducts.map((product: any) => (
+                                                                <SelectItem key={product.id} value={product.id.toString()}>
+                                                                    {product.name}
+                                                                    {product.sku ? ` (${product.sku})` : ''}
+                                                                    {' · '}{t('Stock')}: {product.stock_quantity ?? 0}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-9 w-9 p-0 flex-shrink-0 text-primary border-primary hover:bg-primary hover:text-primary-foreground"
+                                                    onClick={() => setQuickAddIndex(index)}
+                                                    title={t('Quick add new product')}
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <InputError message={(errors as any)[`items.${index}.product_id`]} />
                                         </div>
 
                                         <div>
@@ -315,6 +353,14 @@ export default function Create() {
                     </Button>
                 </div>
             </form>
+
+            <QuickAddProductModal
+                open={quickAddIndex !== null}
+                onClose={() => setQuickAddIndex(null)}
+                onCreated={handleProductAdded}
+                defaultType="product"
+                defaultWarehouseId={data.warehouse_id}
+            />
         </AuthenticatedLayout>
     );
 }

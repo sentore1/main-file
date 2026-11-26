@@ -17,6 +17,9 @@ Route::middleware(['web', 'auth', 'verified', 'PlanModuleCheck:ProductService'])
         Route::post('/', [ProductServiceItemController::class, 'store'])->name('store');
         Route::post('/quick-add', [ProductServiceItemController::class, 'quickAdd'])->name('quick-add');
         Route::get('/meta', [ProductServiceItemController::class, 'meta'])->name('meta');
+        Route::get('/import-template', [ProductServiceItemController::class, 'downloadTemplate'])->name('import-template');
+        Route::post('/bulk-import',    [ProductServiceItemController::class, 'bulkImport'])->name('bulk-import');
+        Route::post('/preview-import', [ProductServiceItemController::class, 'previewImport'])->name('preview-import');
         Route::get('/{item}', [ProductServiceItemController::class, 'show'])->name('show');
         Route::get('/{item}/edit', [ProductServiceItemController::class, 'edit'])->name('edit');
         Route::put('/{item}', [ProductServiceItemController::class, 'update'])->name('update');

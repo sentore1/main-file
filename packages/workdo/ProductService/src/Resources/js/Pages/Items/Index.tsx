@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useDeleteHandler } from '@/hooks/useDeleteHandler';
@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Plus, Package, Edit, Trash2, Eye, Image, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Package, Edit, Trash2, Eye, Image, Download, Upload, FileDown, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterButton } from '@/components/ui/filter-button';
 import { Pagination } from "@/components/ui/pagination";
@@ -42,6 +43,26 @@ export default function Index() {
 
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(urlParams.get('view') as 'list' | 'grid' || 'list');
     const [showFilters, setShowFilters] = useState(false);
+    const importFileRef = useRef<HTMLInputElement>(null);
+    const [importing, setImporting] = useState(false);
+
+    // --- Conflict resolution modal state ---
+    type ConflictRow = {
+        row: number;
+        name: string; sku: string; type: string;
+        sale_price: string; purchase_price: string;
+        description: string; unit: string; category_name: string;
+        quantity: string; warehouse_id: string;
+        existing_id: number; existing_name: string; existing_sku: string;
+        existing_sale: string; existing_purchase: string;
+        existing_unit: string; existing_category: string; existing_quantity: number;
+        resolution: 'skip' | 'update';
+    };
+    const [pendingFile, setPendingFile]       = useState<File | null>(null);
+    const [conflicts, setConflicts]           = useState<ConflictRow[]>([]);
+    const [newRowCount, setNewRowCount]       = useState(0);
+    const [showConflictModal, setShowConflictModal] = useState(false);
+    const [confirmingImport, setConfirmingImport]   = useState(false);
 
     const pageButtons = usePageButtons('googleDriveBtn', { module: 'Products', settingKey: 'GoogleDrive Products' });
     const oneDriveButtons = usePageButtons('oneDriveBtn', { module: 'Products', settingKey: 'OneDrive Products' });
@@ -72,6 +93,88 @@ export default function Index() {
     const clearFilters = () => {
         setFilters({ name: '', type: '', category_id: '' });
         router.get(route('product-service.items.index'), {per_page: perPage, view: viewMode});
+    };
+
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        // Reset input so the same file can be re-selected later
+        if (importFileRef.current) importFileRef.current.value = '';
+
+        setImporting(true);
+
+        try {
+            const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch(route('product-service.items.preview-import'), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: formData,
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                // Validation / permission error
+                alert(json.error ?? t('Import failed. Please check the file format.'));
+                setImporting(false);
+                return;
+            }
+
+            const conflictRows: ConflictRow[] = (json.conflicts ?? []).map((c: any) => ({
+                ...c,
+                resolution: 'skip' as const,
+            }));
+
+            if (conflictRows.length > 0) {
+                // Show the modal so the user can decide what to do with each conflict
+                setPendingFile(file);
+                setConflicts(conflictRows);
+                setNewRowCount((json.new_rows ?? []).length);
+                setImporting(false);
+                setShowConflictModal(true);
+            } else {
+                // No conflicts — import directly
+                const fd = new FormData();
+                fd.append('file', file);
+                router.post(route('product-service.items.bulk-import'), fd, {
+                    forceFormData: true,
+                    onFinish: () => setImporting(false),
+                });
+            }
+        } catch {
+            alert(t('Network error. Please try again.'));
+            setImporting(false);
+        }
+    };
+
+    const setConflictResolution = (row: number, resolution: 'skip' | 'update') => {
+        setConflicts(prev => prev.map(c => c.row === row ? { ...c, resolution } : c));
+    };
+
+    const setAllConflictResolutions = (resolution: 'skip' | 'update') => {
+        setConflicts(prev => prev.map(c => ({ ...c, resolution })));
+    };
+
+    const handleConfirmImport = () => {
+        if (!pendingFile) return;
+        setConfirmingImport(true);
+        const fd = new FormData();
+        fd.append('file', pendingFile);
+        fd.append('conflict_resolutions', JSON.stringify(
+            conflicts.map(c => ({ row: c.row, existing_id: c.existing_id, resolution: c.resolution }))
+        ));
+        router.post(route('product-service.items.bulk-import'), fd, {
+            forceFormData: true,
+            onFinish: () => {
+                setConfirmingImport(false);
+                setShowConflictModal(false);
+                setPendingFile(null);
+                setConflicts([]);
+            },
+        });
     };
 
 
@@ -254,6 +357,49 @@ export default function Index() {
                                     <p>{t('Add Stock')}</p>
                                 </TooltipContent>
                             </Tooltip>
+                        )}
+                        {auth.user?.permissions?.includes('create-product-service-item') && (
+                            <>
+                                {/* Hidden file input for CSV import */}
+                                <input
+                                    ref={importFileRef}
+                                    type="file"
+                                    accept=".csv,text/csv"
+                                    className="hidden"
+                                    onChange={handleImportFile}
+                                />
+                                {/* Download Template */}
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.location.href = route('product-service.items.import-template')}
+                                        >
+                                            <FileDown className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{t('Download Import Template')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                {/* Import CSV */}
+                                <Tooltip delayDuration={0}>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={importing}
+                                            onClick={() => importFileRef.current?.click()}
+                                        >
+                                            <Upload className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{importing ? t('Importing...') : t('Import from CSV')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </>
                         )}
                         {auth.user?.permissions?.includes('create-product-service-item') && (
                             <Tooltip delayDuration={0}>
@@ -539,6 +685,133 @@ export default function Index() {
                 onConfirm={confirmDelete}
                 variant="destructive"
             />
+
+            {/* ── Conflict Resolution Modal ── */}
+            <Dialog open={showConflictModal} onOpenChange={(open) => !confirmingImport && setShowConflictModal(open)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-orange-600">
+                            <AlertTriangle className="h-5 w-5" />
+                            {t('Duplicate Items Found')}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="text-sm text-muted-foreground px-1">
+                        <p>
+                            {newRowCount > 0 && <span className="text-green-600 font-medium">{newRowCount} {t('new item(s) will be created.')}</span>}
+                            {newRowCount > 0 && conflicts.length > 0 && ' '}
+                            {conflicts.length > 0 && (
+                                <span className="text-orange-600 font-medium">
+                                    {conflicts.length} {t('item(s) already exist. Choose what to do with each:')}
+                                </span>
+                            )}
+                        </p>
+                    </div>
+
+                    {/* Global actions */}
+                    <div className="flex items-center gap-2 px-1 py-2 border-b">
+                        <span className="text-xs text-muted-foreground mr-2">{t('Apply to all')}:</span>
+                        <Button size="sm" variant="outline" onClick={() => setAllConflictResolutions('skip')}>
+                            {t('Skip All')}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setAllConflictResolutions('update')}>
+                            {t('Update All')}
+                        </Button>
+                    </div>
+
+                    {/* Conflicts table */}
+                    <div className="overflow-y-auto flex-1 px-1">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th className="text-left px-2 py-2 font-medium text-gray-600">#</th>
+                                    <th className="text-left px-2 py-2 font-medium text-gray-600">{t('Field')}</th>
+                                    <th className="text-left px-2 py-2 font-medium text-gray-600">{t('CSV Value')}</th>
+                                    <th className="text-left px-2 py-2 font-medium text-gray-600">{t('Current Value')}</th>
+                                    <th className="text-center px-2 py-2 font-medium text-gray-600">{t('Action')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {conflicts.map((c, ci) => (
+                                    <React.Fragment key={c.row}>
+                                        {/* Row header */}
+                                        <tr className={ci > 0 ? 'border-t-2 border-gray-300' : ''}>
+                                            <td className="px-2 pt-3 pb-1 text-gray-400 text-xs align-top" rowSpan={6}>#{c.row}</td>
+                                            <td className="px-2 pt-3 pb-1 text-gray-500">{t('Name / SKU')}</td>
+                                            <td className="px-2 pt-3 pb-1 font-medium">
+                                                {c.name}
+                                                {c.sku && <span className="ml-1 text-xs text-gray-400">({c.sku})</span>}
+                                            </td>
+                                            <td className="px-2 pt-3 pb-1 text-gray-600">
+                                                {c.existing_name}
+                                                {c.existing_sku && <span className="ml-1 text-xs text-gray-400">({c.existing_sku})</span>}
+                                            </td>
+                                            <td className="px-2 pt-3 pb-1 text-center align-top" rowSpan={6}>
+                                                <div className="flex flex-col gap-1 items-center">
+                                                    <button
+                                                        onClick={() => setConflictResolution(c.row, 'skip')}
+                                                        className={`px-3 py-1 rounded text-xs font-medium transition-colors w-16 ${
+                                                            c.resolution === 'skip'
+                                                                ? 'bg-gray-600 text-white'
+                                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                        }`}
+                                                    >{t('Skip')}</button>
+                                                    <button
+                                                        onClick={() => setConflictResolution(c.row, 'update')}
+                                                        className={`px-3 py-1 rounded text-xs font-medium transition-colors w-16 ${
+                                                            c.resolution === 'update'
+                                                                ? 'bg-blue-600 text-white'
+                                                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                                        }`}
+                                                    >{t('Update')}</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr className={c.resolution === 'update' ? 'bg-blue-50/40' : ''}>
+                                            <td className="px-2 py-1 text-gray-500">{t('Sale Price')}</td>
+                                            <td className="px-2 py-1 font-medium">{formatCurrency(parseFloat(c.sale_price) || 0)}</td>
+                                            <td className="px-2 py-1 text-gray-600">{formatCurrency(parseFloat(c.existing_sale) || 0)}</td>
+                                        </tr>
+                                        <tr className={c.resolution === 'update' ? 'bg-blue-50/40' : ''}>
+                                            <td className="px-2 py-1 text-gray-500">{t('Category')}</td>
+                                            <td className="px-2 py-1 font-medium">{c.category_name || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-2 py-1 text-gray-600">{c.existing_category || <span className="text-gray-300">—</span>}</td>
+                                        </tr>
+                                        <tr className={c.resolution === 'update' ? 'bg-blue-50/40' : ''}>
+                                            <td className="px-2 py-1 text-gray-500">{t('Unit')}</td>
+                                            <td className="px-2 py-1 font-medium">{c.unit || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-2 py-1 text-gray-600">{c.existing_unit || <span className="text-gray-300">—</span>}</td>
+                                        </tr>
+                                        <tr className={c.resolution === 'update' ? 'bg-blue-50/40' : ''}>
+                                            <td className="px-2 py-1 text-gray-500">{t('Quantity')}</td>
+                                            <td className="px-2 py-1 font-medium">{c.quantity !== '' ? c.quantity : <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-2 py-1 text-gray-600">{c.existing_quantity ?? 0}</td>
+                                        </tr>
+                                        <tr className={c.resolution === 'update' ? 'bg-blue-50/40' : ''}>
+                                            <td className="px-2 pb-3 pt-1 text-gray-500">{t('Description')}</td>
+                                            <td className="px-2 pb-3 pt-1 font-medium text-xs text-gray-600 max-w-[160px] truncate">{c.description || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-2 pb-3 pt-1 text-gray-500 text-xs">—</td>
+                                        </tr>
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <DialogFooter className="border-t pt-4 gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => { setShowConflictModal(false); setPendingFile(null); setConflicts([]); }}
+                            disabled={confirmingImport}
+                        >
+                            {t('Cancel')}
+                        </Button>
+                        <Button onClick={handleConfirmImport} disabled={confirmingImport}>
+                            {confirmingImport ? t('Importing...') : t('Confirm Import')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             </AuthenticatedLayout>
         </TooltipProvider>

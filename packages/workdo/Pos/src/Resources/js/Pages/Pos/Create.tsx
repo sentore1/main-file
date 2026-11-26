@@ -1575,6 +1575,26 @@ function CreateContent({ customers = [], warehouses = [], categories = [] }: Cre
                                                 />
                                                 <span className="text-sm">{t('Check')}</span>
                                             </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer bg-yellow-50 p-2 rounded border border-yellow-300">
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMethod"
+                                                    value="credit"
+                                                    checked={paymentMethod === 'credit'}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm font-medium text-yellow-800">
+                                                    💳 {t('Credit')}
+                                                </span>
+                                            </label>
+                                            {paymentMethod === 'credit' && (
+                                                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm text-yellow-800 space-y-1">
+                                                    <p>⚠️ {t('No payment collected now — amount will be owed by the client.')}</p>
+                                                    <p>✓ {t('Full balance will remain due.')}</p>
+                                                    <p>✓ {t('If a partial amount is entered below, the rest is recorded as a credit balance.')}</p>
+                                                </div>
+                                            )}
                                             {selectedRoomBooking && (
                                                 <label className="flex items-center space-x-2 cursor-pointer bg-orange-50 p-2 rounded border border-orange-200">
                                                     <input

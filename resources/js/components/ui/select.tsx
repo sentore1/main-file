@@ -75,7 +75,8 @@ const SelectContent = React.forwardRef<
   }
 >(({ className, children, position = "popper", searchable = false, ...props }, ref) => {
   const [search, setSearch] = React.useState("")
-  
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
   const filteredChildren = React.useMemo(() => {
     if (!searchable || !search) return children
     
@@ -101,6 +102,12 @@ const SelectContent = React.forwardRef<
           className
         )}
         position={position}
+        // Prevent Radix from moving focus to items when user types in the search box
+        onKeyDown={(e) => {
+          if (inputRef.current === document.activeElement) {
+            e.stopPropagation()
+          }
+        }}
         {...props}
       >
         <SelectScrollUpButton />
@@ -108,15 +115,18 @@ const SelectContent = React.forwardRef<
           <div className="flex items-center border-b px-3 py-2">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <Input
+              ref={inputRef}
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
+                // Block ALL key events from reaching Radix's internal keyboard handler
                 e.stopPropagation()
                 e.nativeEvent.stopImmediatePropagation()
+                // After Radix's capture-phase listener may have run, reclaim focus
+                requestAnimationFrame(() => inputRef.current?.focus())
               }}
               onKeyUp={(e) => e.stopPropagation()}
-              onKeyPress={(e) => e.stopPropagation()}
               className="h-8 border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoFocus
             />

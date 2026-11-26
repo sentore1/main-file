@@ -1250,7 +1250,7 @@ class PosController extends Controller
         if(Auth::user()->can('manage-pos') && $sale->created_by == creatorId()){
             $request->validate([
                 'amount' => 'required|numeric|min:0.01',
-                'payment_method' => 'required|string|in:cash,card,bank_transfer,mtn_momo,airtel_money,bank,check',
+                'payment_method' => 'required|string|in:cash,card,bank_transfer,mtn_momo,airtel_money,bank,check,credit',
                 'bank_account_id' => 'nullable|exists:bank_accounts,id',
             ]);
 
